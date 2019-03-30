@@ -1,0 +1,33 @@
+{
+  "name": "y-websocket",
+  "version": "1.0.0",
+  "description": "Yjs Websocket Provider",
+  "main": "./dist/y-websocket.js",
+  "module": "./src/y-websocket.js",
+  "bin": {
+    "y-websocket": "./bin/server.js"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "funlib": "*",
+    "y-protocols": "*",
+    "rollup": "^1.1.2"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dist": "rollup -c"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/y-js/y-websocket.git"
+  },
+  "keywords": [
+    "Yjs"
+  ],
+  "author": "Kevin Jahns <kevin.jahns@protonmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/y-js/y-websocket/issues"
+  },
+  "homepage": "https://github.com/y-js/y-websocket#readme"
+}
