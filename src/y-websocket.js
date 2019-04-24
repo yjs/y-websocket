@@ -54,6 +54,10 @@ const readMessage = (doc, buf) => {
   return encoder
 }
 
+/**
+ * @param {WebsocketsSharedDocument} doc
+ * @param {string} url
+ */
 const setupWS = (doc, url) => {
   const websocket = new WebSocket(url)
   websocket.binaryType = 'arraybuffer'
@@ -68,9 +72,12 @@ const setupWS = (doc, url) => {
     doc.ws = null
     doc.wsconnected = false
     // update awareness (all users left)
+    /**
+     * @type {Array<number>}
+     */
     const removed = []
-    doc.getAwarenessInfo().forEach((_, userid) => {
-      removed.push(userid)
+    doc.getAwarenessInfo().forEach((_, clientID) => {
+      removed.push(clientID)
     })
     doc.awareness = new Map()
     doc.emit('awareness', [{
@@ -89,40 +96,61 @@ const setupWS = (doc, url) => {
     // always send sync step 1 when connected
     const encoder = encoding.createEncoder()
     encoding.writeVarUint(encoder, messageSync)
-    syncProtocol.writeSyncStep1(encoder, doc)
+    syncProtocol.writeSyncStep1(encoder, doc.store)
     websocket.send(encoding.toBuffer(encoder))
     // force send stored awareness info
     doc.setAwarenessField(null, null)
   }
 }
 
-const broadcastUpdate = (y, transaction) => {
-  if (transaction.encodedStructsLen > 0) {
+/**
+ * @param {Y.Transaction} transaction
+ * @param {WebsocketsSharedDocument} y
+ */
+const broadcastUpdate = (transaction, y) => {
+  if (transaction.updateMessage !== null) {
     y.mux(() => {
-      const encoder = encoding.createEncoder()
-      encoding.writeVarUint(encoder, messageSync)
-      syncProtocol.writeUpdate(encoder, transaction.encodedStructsLen, transaction.encodedStructs)
-      const buf = encoding.toBuffer(encoder)
-      if (y.wsconnected) {
-        y.ws.send(buf)
+      const updateMessage = transaction.updateMessage
+      if (updateMessage !== null) {
+        const encoder = encoding.createEncoder()
+        encoding.writeVarUint(encoder, messageSync)
+        syncProtocol.writeUpdate(encoder, updateMessage)
+        const buf = encoding.toBuffer(encoder)
+        if (y.wsconnected) {
+          // @ts-ignore We know that wsconnected = true
+          y.ws.send(buf)
+        }
+        bc.publish(y.url, buf)
       }
-      bc.publish(y.url, buf)
     })
   }
 }
 
 class WebsocketsSharedDocument extends Y.Y {
+  /**
+   * @param {string} url
+   * @param {Object} opts
+   */
   constructor (url, opts) {
     super(opts)
-    this.url = url
-    this.wsconnected = false
-    this.mux = mutex.createMutex()
-    this.ws = null
+    /**
+     * @type {Object<string,Object>}
+     */
     this._localAwarenessState = {}
     this.awareness = new Map()
     this.awarenessClock = new Map()
+    this.url = url
+    this.wsconnected = false
+    this.mux = mutex.createMutex()
+    /**
+     * @type {WebSocket?}
+     */
+    this.ws = null
     setupWS(this, url)
     this.on('afterTransaction', broadcastUpdate)
+    /**
+     * @param {ArrayBuffer} data
+     */
     this._bcSubscriber = data => {
       const encoder = readMessage(this, data) // already muxed
       this.mux(() => {
@@ -136,7 +164,7 @@ class WebsocketsSharedDocument extends Y.Y {
     this.mux(() => {
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
-      syncProtocol.writeSyncStep1(encoder, this)
+      syncProtocol.writeSyncStep1(encoder, this.store)
       bc.publish(url, encoding.toBuffer(encoder))
     })
   }
@@ -146,17 +174,22 @@ class WebsocketsSharedDocument extends Y.Y {
   getAwarenessInfo () {
     return this.awareness
   }
+  /**
+   * @param {string?} field
+   * @param {Object} value
+   */
   setAwarenessField (field, value) {
     if (field !== null) {
       this._localAwarenessState[field] = value
     }
     if (this.wsconnected) {
-      const clock = (this.awarenessClock.get(this.userID) || 0) + 1
-      this.awarenessClock.set(this.userID, clock)
+      const clock = (this.awarenessClock.get(this.clientID) || 0) + 1
+      this.awarenessClock.set(this.clientID, clock)
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageAwareness)
-      awarenessProtocol.writeUsersStateChange(encoder, [{ userID: this.userID, state: this._localAwarenessState, clock }])
+      awarenessProtocol.writeUsersStateChange(encoder, [{ clientID: this.clientID, state: this._localAwarenessState, clock }])
       const buf = encoding.toBuffer(encoder)
+      // @ts-ignore we know that wsconnected = true
       this.ws.send(buf)
     }
   }
@@ -173,6 +206,9 @@ class WebsocketsSharedDocument extends Y.Y {
  *   const ydocument = provider.get('my-document-name')
  */
 export class WebsocketProvider {
+  /**
+   * @param {string} url
+   */
   constructor (url) {
     // ensure that url is always ends with /
     while (url[url.length - 1] === '/') {
@@ -186,6 +222,7 @@ export class WebsocketProvider {
   }
   /**
    * @param {string} name
+   * @param {Object} [opts]
    * @return {WebsocketsSharedDocument}
    */
   get (name, opts) {

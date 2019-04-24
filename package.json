@@ -1,21 +1,18 @@
 {
   "name": "y-websocket",
-  "version": "1.0.0",
-  "description": "Yjs Websocket Provider",
-  "main": "./dist/y-websocket.js",
-  "module": "./src/y-websocket.js",
-  "bin": {
-    "y-websocket": "./bin/server.js"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "funlib": "*",
-    "y-protocols": "*",
-    "rollup": "^1.1.2"
-  },
+  "version": "0.0.0",
+  "description": "Websockets provider for Yjs",
+  "main": "",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dist": "rollup -c"
+    "start": "node ./bin/server.js",
+    "dist": "rm -rf dist/* && rollup -c",
+    "test": "echo 'should lint here'",
+    "lint": "standard",
+    "preversion": "npm run test",
+    "version": "npm run dist"
+  },
+  "bin": {
+    "y-websocket-server": "./bin/server.js"
   },
   "repository": {
     "type": "git",
@@ -29,5 +26,23 @@
   "bugs": {
     "url": "https://github.com/y-js/y-websocket/issues"
   },
-  "homepage": "https://github.com/y-js/y-websocket#readme"
+  "homepage": "https://github.com/y-js/y-websocket#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "rollup": "^1.1.2",
+    "rollup-cli": "^1.0.9",
+    "standard": "^12.0.1",
+    "lib0": "file:/../lib0",
+    "y-leveldb": "file:../y-leveldb",
+    "y-protocols": "file:../y-protocols",
+    "yjs": "file:../yjs"
+  },
+  "peerDependenies": {
+    "lib0": "^0.0.1",
+    "yjs": "*"
+  },
+  "optionalDependencies": {
+    "ws": "^6.2.1",
+    "y-leveldb": "*"
+  }
 }
