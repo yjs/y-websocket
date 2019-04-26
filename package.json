@@ -17,7 +17,8 @@
     "y-websocket-server": "./bin/server.js"
   },
   "files": [
-    "dist/*"
+    "dist/*",
+    "bin/*"
   ],
   "repository": {
     "type": "git",
