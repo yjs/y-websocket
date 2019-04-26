@@ -41,12 +41,12 @@ const readMessage = (doc, buf) => {
   switch (messageType) {
     case messageSync:
       encoding.writeVarUint(encoder, messageSync)
-      doc.mux(() =>
-        syncProtocol.readSyncMessage(decoder, encoder, doc)
-      )
+      syncProtocol.readSyncMessage(decoder, encoder, doc, doc.ws)
       break
     case messageAwareness:
-      awarenessProtocol.readAwarenessMessage(decoder, doc)
+      doc.mux(() =>
+        awarenessProtocol.readAwarenessMessage(decoder, doc)
+      )
       break
     case messageAuth:
       authProtocol.readAuthMessage(decoder, doc, permissionDeniedHandler)
@@ -86,7 +86,9 @@ const setupWS = (doc, url) => {
     doc.emit('status', [{
       status: 'disconnected'
     }])
-    setTimeout(setupWS, reconnectTimeout, doc, url)
+    if (doc.shouldReconnect) {
+      setTimeout(setupWS, reconnectTimeout, doc, url)
+    }
   }
   websocket.onopen = () => {
     doc.wsconnected = true
@@ -108,21 +110,19 @@ const setupWS = (doc, url) => {
  * @param {WebsocketsSharedDocument} y
  */
 const broadcastUpdate = (transaction, y) => {
-  if (transaction.updateMessage !== null) {
-    y.mux(() => {
-      const updateMessage = transaction.updateMessage
-      if (updateMessage !== null) {
-        const encoder = encoding.createEncoder()
-        encoding.writeVarUint(encoder, messageSync)
-        syncProtocol.writeUpdate(encoder, updateMessage)
-        const buf = encoding.toBuffer(encoder)
-        if (y.wsconnected) {
-          // @ts-ignore We know that wsconnected = true
-          y.ws.send(buf)
-        }
-        bc.publish(y.url, buf)
+  if (transaction.origin !== y.ws && transaction.updateMessage !== null) {
+    const updateMessage = transaction.updateMessage
+    if (updateMessage !== null) {
+      const encoder = encoding.createEncoder()
+      encoding.writeVarUint(encoder, messageSync)
+      syncProtocol.writeUpdate(encoder, updateMessage)
+      const buf = encoding.toBuffer(encoder)
+      if (y.wsconnected) {
+        // @ts-ignore We know that wsconnected = true
+        y.ws.send(buf)
       }
-    })
+      bc.publish(y.url, buf)
+    }
   }
 }
 
@@ -146,8 +146,7 @@ class WebsocketsSharedDocument extends Y.Y {
      * @type {WebSocket?}
      */
     this.ws = null
-    setupWS(this, url)
-    this.on('afterTransaction', broadcastUpdate)
+    this.shouldReconnect = true
     /**
      * @param {ArrayBuffer} data
      */
@@ -159,14 +158,30 @@ class WebsocketsSharedDocument extends Y.Y {
         }
       })
     }
-    bc.subscribe(url, this._bcSubscriber)
-    // send sync step1 to bc
-    this.mux(() => {
-      const encoder = encoding.createEncoder()
-      encoding.writeVarUint(encoder, messageSync)
-      syncProtocol.writeSyncStep1(encoder, this.store)
-      bc.publish(url, encoding.toBuffer(encoder))
-    })
+    this.connect()
+  }
+  disconnect () {
+    this.shouldReconnect = false
+    if (this.ws !== null) {
+      this.ws.close()
+      bc.unsubscribe(this.url, this._bcSubscriber)
+      this.off('afterTransaction', broadcastUpdate)
+    }
+  }
+  connect () {
+    this.shouldReconnect = true
+    if (!this.wsconnected && this.ws === null) {
+      setupWS(this, this.url)
+      bc.subscribe(this.url, this._bcSubscriber)
+      // send sync step1 to bc
+      this.mux(() => {
+        const encoder = encoding.createEncoder()
+        encoding.writeVarUint(encoder, messageSync)
+        syncProtocol.writeSyncStep1(encoder, this.store)
+        bc.publish(this.url, encoding.toBuffer(encoder))
+      })
+      this.on('afterTransaction', broadcastUpdate)
+    }
   }
   getLocalAwarenessInfo () {
     return this._localAwarenessState
