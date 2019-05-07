@@ -33,9 +33,9 @@ import { WebsocketProvider } from 'yjs/provider/websocket.js'
 const provider = new WebsocketProvider('http://localhost:1234')
 
 // open a websocket connection to http://localhost:1234/my-document-name
-const sharedDocument = provider.get('my-document-name')
+const Doc = provider.get('my-document-name')
 
-sharedDocument.on('status', event => {
+Doc.on('status', event => {
   console.log(event.status) // logs "connected" or "disconnected"
 })
 ```

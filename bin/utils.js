@@ -35,20 +35,19 @@ const messageAwareness = 1
 // const messageAuth = 2
 
 /**
- * @param {Y.Transaction} transaction
+ * @param {Uint8Array} update
+ * @param {any} origin
  * @param {WSSharedDoc} doc
  */
-const afterTransaction = (transaction, doc) => {
-  if (transaction.updateMessage !== null) {
-    const encoder = encoding.createEncoder()
-    encoding.writeVarUint(encoder, messageSync)
-    syncProtocol.writeUpdate(encoder, transaction.updateMessage)
-    const message = encoding.toBuffer(encoder)
-    doc.conns.forEach((_, conn) => send(doc, conn, message))
-  }
+const updateHandler = (update, origin, doc) => {
+  const encoder = encoding.createEncoder()
+  encoding.writeVarUint(encoder, messageSync)
+  syncProtocol.writeUpdate(encoder, update)
+  const message = encoding.toUint8Array(encoder)
+  doc.conns.forEach((_, conn) => send(doc, conn, message))
 }
 
-class WSSharedDoc extends Y.Y {
+class WSSharedDoc extends Y.Doc {
   /**
    * @param {string} name
    */
@@ -69,14 +68,14 @@ class WSSharedDoc extends Y.Y {
      * @type {Map<number,number>}
      */
     this.awarenessClock = new Map()
-    this.on('afterTransaction', afterTransaction)
+    this.on('update', updateHandler)
   }
 }
 
 /**
  * @param {any} conn
  * @param {WSSharedDoc} doc
- * @param {ArrayBuffer} message
+ * @param {Uint8Array} message
  */
 const messageListener = (conn, doc, message) => {
   const encoder = encoding.createEncoder()
@@ -87,7 +86,7 @@ const messageListener = (conn, doc, message) => {
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.readSyncMessage(decoder, encoder, doc, null)
       if (encoding.length(encoder) > 1) {
-        send(doc, conn, encoding.toBuffer(encoder))
+        send(doc, conn, encoding.toUint8Array(encoder))
       }
       break
     case messageAwareness: {
@@ -99,7 +98,7 @@ const messageListener = (conn, doc, message) => {
         // @ts-ignore we received an update => so conn exists
         doc.conns.get(conn).add(update.clientID)
       })
-      const buff = encoding.toBuffer(encoder)
+      const buff = encoding.toUint8Array(encoder)
       doc.conns.forEach((_, c) => {
         send(doc, c, buff)
       })
@@ -128,7 +127,7 @@ const closeConn = (doc, conn) => {
       doc.awarenessClock.delete(clientID)
       return { clientID, state: null, clock }
     }))
-    const buf = encoding.toBuffer(encoder)
+    const buf = encoding.toUint8Array(encoder)
     doc.conns.forEach((_, conn) => {
       send(doc, conn, buf)
     })
@@ -146,7 +145,7 @@ const closeConn = (doc, conn) => {
 /**
  * @param {WSSharedDoc} doc
  * @param {any} conn
- * @param {ArrayBuffer} m
+ * @param {Uint8Array} m
  */
 const send = (doc, conn, m) => {
   if (conn.readyState !== wsReadyStateConnecting && conn.readyState !== wsReadyStateOpen) {
@@ -179,7 +178,7 @@ exports.setupWSConnection = (conn, req) => {
   })
   doc.conns.set(conn, new Set())
   // listen and reply to events
-  conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, message))
+  conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
   conn.on('close', () => {
     closeConn(doc, conn)
   })
@@ -206,8 +205,8 @@ exports.setupWSConnection = (conn, req) => {
   // send sync step 1
   const encoder = encoding.createEncoder()
   encoding.writeVarUint(encoder, messageSync)
-  syncProtocol.writeSyncStep1(encoder, doc.store)
-  send(doc, conn, encoding.toBuffer(encoder))
+  syncProtocol.writeSyncStep1(encoder, doc)
+  send(doc, conn, encoding.toUint8Array(encoder))
   if (doc.awareness.size > 0) {
     const encoder = encoding.createEncoder()
     /**
@@ -219,6 +218,6 @@ exports.setupWSConnection = (conn, req) => {
     })
     encoding.writeVarUint(encoder, messageAwareness)
     awarenessProtocol.writeUsersStateChange(encoder, userStates)
-    send(doc, conn, encoding.toBuffer(encoder))
+    send(doc, conn, encoding.toUint8Array(encoder))
   }
 }
