@@ -3,10 +3,24 @@
 
 The websocket provider implements a classical client server model. Clients connect to a single endpoint over websocket. The server distributes awareness information and document updates among clients.
 
-The Websocket Provider is a solid choice if you want a central source that handles authentication and authorization. Websockets also send header information and cookies, so you can use existing authentication mechanisms with this server. I recommend that you slightly adapt the server in `./provider/websocket/server.js` to your needs.
+The Websocket Provider is a solid choice if you want a central source that handles authentication and authorization. Websockets also send header information and cookies, so you can use existing authentication mechanisms with this server.
 
 * Supports cross-tab communication. When you open the same document in the same browser, changes on the document are exchanged via cross-tab communication ([Broadcast Channel](https://developer.mozilla.org/en-US/docs/Web/API/Broadcast_Channel_API) and [localStorage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) as fallback).
 * Supports exange of awareness information (e.g. cursors)
+
+##### Client Code:
+
+```js
+import * as Y from 'yjs'
+import { WebsocketProvider } from 'yjs/provider/websocket.js'
+
+const doc = new Y.Doc()
+const wsProvider = new WebsocketProvider('http://localhost:1234', 'my-roomname', doc)
+
+provider.on('status', event => {
+  console.log(event.status) // logs "connected" or "disconnected"
+})
+```
 
 ##### Start a Websocket Server:
 
@@ -21,26 +35,10 @@ Persist document updates in a LevelDB database.
 See [LevelDB Persistence](#LevelDB Persistence) for more info.
 
 ```sh
-PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/yjs/provider/websocket/server.js
+PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/y-websocket/bin/server.js
 ```
 
-##### Client Code:
-
-```js
-import * as Y from 'yjs'
-import { WebsocketProvider } from 'yjs/provider/websocket.js'
-
-const provider = new WebsocketProvider('http://localhost:1234')
-
-// open a websocket connection to http://localhost:1234/my-document-name
-const Doc = provider.get('my-document-name')
-
-Doc.on('status', event => {
-  console.log(event.status) // logs "connected" or "disconnected"
-})
-```
-
-#### Scaling
+### Scaling
 
 These are mere suggestions how you could scale your server environment.
 
