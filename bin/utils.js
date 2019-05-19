@@ -26,7 +26,7 @@ if (typeof persistenceDir === 'string') {
 }
 
 /**
- * @type {Map<number,WSSharedDoc>}
+ * @type {Map<string,WSSharedDoc>}
  */
 const docs = new Map()
 
@@ -61,13 +61,30 @@ class WSSharedDoc extends Y.Doc {
      */
     this.conns = new Map()
     /**
-     * @type {Map<number,Object>}
+     * @type {awarenessProtocol.Awareness}
      */
-    this.awareness = new Map()
+    this.awareness = new awarenessProtocol.Awareness(this)
     /**
-     * @type {Map<number,number>}
+     * @param {{ added: Array<number>, updated: Array<number>, removed: Array<number> }} changes
+     * @param {Object | null} conn Origin is the connection that made the change
      */
-    this.awarenessClock = new Map()
+    const awarenessChangeHandler = ({ added, updated, removed }, conn) => {
+      const changedClients = added.concat(updated, removed)
+      if (conn !== null) {
+        const connControlledIDs = /** @type {Set<number>} */ (this.conns.get(conn))
+        added.forEach(clientID => { connControlledIDs.add(clientID) })
+        removed.forEach(clientID => { connControlledIDs.delete(clientID) })
+      }
+      // broadcast awareness update
+      const encoder = encoding.createEncoder()
+      encoding.writeVarUint(encoder, messageAwareness)
+      encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(this.awareness, changedClients))
+      const buff = encoding.toUint8Array(encoder)
+      this.conns.forEach((_, c) => {
+        send(this, c, buff)
+      })
+    }
+    this.awareness.on('change', awarenessChangeHandler)
     this.on('update', updateHandler)
   }
 }
@@ -90,18 +107,7 @@ const messageListener = (conn, doc, message) => {
       }
       break
     case messageAwareness: {
-      encoding.writeVarUint(encoder, messageAwareness)
-      const updates = awarenessProtocol.forwardAwarenessMessage(decoder, encoder)
-      updates.forEach(update => {
-        doc.awareness.set(update.clientID, update.state)
-        doc.awarenessClock.set(update.clientID, update.clock)
-        // @ts-ignore we received an update => so conn exists
-        doc.conns.get(conn).add(update.clientID)
-      })
-      const buff = encoding.toUint8Array(encoder)
-      doc.conns.forEach((_, c) => {
-        send(doc, c, buff)
-      })
+      awarenessProtocol.applyAwarenessUpdate(doc.awareness, decoding.readVarUint8Array(decoder), conn)
       break
     }
   }
@@ -119,24 +125,13 @@ const closeConn = (doc, conn) => {
     // @ts-ignore
     const controlledIds = doc.conns.get(conn)
     doc.conns.delete(conn)
-    const encoder = encoding.createEncoder()
-    encoding.writeVarUint(encoder, messageAwareness)
-    awarenessProtocol.writeUsersStateChange(encoder, Array.from(controlledIds).map(clientID => {
-      const clock = (doc.awarenessClock.get(clientID) || 0) + 1
-      doc.awareness.delete(clientID)
-      doc.awarenessClock.delete(clientID)
-      return { clientID, state: null, clock }
-    }))
-    const buf = encoding.toUint8Array(encoder)
-    doc.conns.forEach((_, conn) => {
-      send(doc, conn, buf)
-    })
+    awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
     if (doc.conns.size === 0 && persistence !== null) {
       // if persisted, we store state and destroy ydocument
       persistence.writeState(doc.name, doc).then(() => {
         doc.destroy()
       })
-      doc.conns.delete(doc.name)
+      docs.delete(doc.name)
     }
   }
   conn.close()
@@ -167,6 +162,9 @@ const pingTimeout = 30000
 exports.setupWSConnection = (conn, req) => {
   conn.binaryType = 'arraybuffer'
   // get doc, create if it does not exist yet
+  /**
+   * @type {string}
+   */
   const docName = req.url.slice(1)
   const doc = map.setIfUndefined(docs, docName, () => {
     const doc = new WSSharedDoc(docName)
@@ -207,17 +205,11 @@ exports.setupWSConnection = (conn, req) => {
   encoding.writeVarUint(encoder, messageSync)
   syncProtocol.writeSyncStep1(encoder, doc)
   send(doc, conn, encoding.toUint8Array(encoder))
-  if (doc.awareness.size > 0) {
+  const awarenessStates = doc.awareness.getStates()
+  if (awarenessStates.size > 0) {
     const encoder = encoding.createEncoder()
-    /**
-     * @type {Array<Object>}
-     */
-    const userStates = []
-    doc.awareness.forEach((state, clientID) => {
-      userStates.push({ state, clientID, clock: (doc.awarenessClock.get(clientID) || 0) })
-    })
     encoding.writeVarUint(encoder, messageAwareness)
-    awarenessProtocol.writeUsersStateChange(encoder, userStates)
+    encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(doc.awareness, Array.from(awarenessStates.keys())))
     send(doc, conn, encoding.toUint8Array(encoder))
   }
 }

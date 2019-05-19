@@ -42,7 +42,7 @@ PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/y-websocket/bin/server.js
 
 These are mere suggestions how you could scale your server environment.
 
-**Option 1:** Websocket servers communicate with each other via a PubSub server. A room is represented by a PubSub channel. The downside of this approach is that the same shared document may be handled by many servers. But the upside is that this approach is fault tolerant, does not have a single point of failure, and is perfectly fit for route balancing.
+**Option 1:** Websocket servers communicate with each other via a PubSub server. A room is represented by a PubSub channel. The downside of this approach is that the same shared document may be handled by many servers. But the upside is that this approach is fault tolerant, does not have a single point of failure, and is fit for route balancing.
 
 **Option 2:** Sharding with *consistent hashing*. Each document is handled by a unique server. This patterns requires an entity, like etcd, that performs regular health checks and manages servers. Based on the list of available servers (which is managed by etcd) a proxy calculates which server is responsible for each requested document. The disadvantage of this approach is that it is that load distribution may not be fair. Still, this approach may be the preferred solution if you want to store the shared document in a database - e.g. for indexing.
 
