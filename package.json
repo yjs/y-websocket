@@ -10,8 +10,7 @@
     "dist": "rm -rf dist && rollup -c",
     "test": "echo 'should lint here'",
     "lint": "standard",
-    "preversion": "npm run test",
-    "version": "npm run dist"
+    "preversion": "npm run lint && npm run test && npm run dist"
   },
   "bin": {
     "y-websocket-server": "./bin/server.js"
@@ -45,7 +44,7 @@
     "yjs": "13.0.0-83"
   },
   "peerDependenies": {
-    "yjs": "13.0.0-83"
+    "yjs": ">=13.0.0-83"
   },
   "optionalDependencies": {
     "ws": "^6.2.1"
