@@ -15,7 +15,7 @@ import * as Y from 'yjs'
 import { WebsocketProvider } from 'yjs/provider/websocket.js'
 
 const doc = new Y.Doc()
-const wsProvider = new WebsocketProvider('http://localhost:1234', 'my-roomname', doc)
+const wsProvider = new WebsocketProvider('ws://localhost:1234', 'my-roomname', doc)
 
 provider.on('status', event => {
   console.log(event.status) // logs "connected" or "disconnected"
