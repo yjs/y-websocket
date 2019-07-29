@@ -5,15 +5,28 @@
  */
 const WebSocket = require('ws')
 const http = require('http')
+const https = require('https')
 const wss = new WebSocket.Server({ noServer: true })
 const setupWSConnection = require('./utils.js').setupWSConnection
 
 const port = process.env.PORT || 1234
+const key = process.env.KEY;
+const cert = process.env.CERT;
+const ca = process.env.CA;
+const secure = key && cert && ca;
 
-const server = http.createServer((request, response) => {
+function handler(request, response) {
   response.writeHead(200, { 'Content-Type': 'text/plain' })
   response.end('okay')
-})
+}
+
+let server;
+if (secure) {
+  const credentials = { key, cert, ca };
+  server = https.createServer(credentials, handler);
+} else {
+  server = http.createServer(handler);
+}
 
 wss.on('connection', setupWSConnection)
 
