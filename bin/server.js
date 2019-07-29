@@ -5,14 +5,15 @@
  */
 const WebSocket = require('ws')
 const http = require('http')
+const fs = require('fs');
 const https = require('https')
 const wss = new WebSocket.Server({ noServer: true })
 const setupWSConnection = require('./utils.js').setupWSConnection
 
 const port = process.env.PORT || 1234
-const key = process.env.KEY;
-const cert = process.env.CERT;
-const ca = process.env.CA;
+const keyPath = process.env.KEY;
+const certPath = process.env.CERT;
+const caPath = process.env.CA;
 const secure = key && cert && ca;
 
 function handler(request, response) {
@@ -22,6 +23,9 @@ function handler(request, response) {
 
 let server;
 if (secure) {
+  const key = fs.readFileSync(keyPath, 'utf8');
+  const cert = fs.readFileSync(certPath, 'utf8');
+  const ca = fs.readFileSync(caPath, 'utf8');
   const credentials = { key, cert, ca };
   server = https.createServer(credentials, handler);
 } else {
