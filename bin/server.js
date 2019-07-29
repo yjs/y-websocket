@@ -14,7 +14,7 @@ const port = process.env.PORT || 1234
 const keyPath = process.env.KEY;
 const certPath = process.env.CERT;
 const caPath = process.env.CA;
-const secure = key && cert && ca;
+const secure = keyPath && certPath && caPath;
 
 function handler(request, response) {
   response.writeHead(200, { 'Content-Type': 'text/plain' })
