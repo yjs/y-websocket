@@ -43,12 +43,10 @@ export class WebsocketProvider extends Observable {
    * @param {string} url
    * @param {string} roomname
    * @param {Y.Doc} doc
+   * @param {{awareness:awarenessProtocol.Awareness,db:any|null}} conf
    */
-  constructor (url, roomname, doc, awareness = new awarenessProtocol.Awareness(doc)) {
+  constructor (url, roomname, doc, { awareness = new awarenessProtocol.Awareness(doc), db = null } = /** @type {any} */ ({})) {
     super()
-    window.addEventListener('beforeunload', () => {
-      awarenessProtocol.removeAwarenessStates(this.awareness, [this.doc.clientID], null)
-    })
     // ensure that url is always ends with /
     while (url[url.length - 1] === '/') {
       url = url.slice(0, url.length - 1)
@@ -60,6 +58,7 @@ export class WebsocketProvider extends Observable {
      * @type {Object<string,Object>}
      */
     this._localAwarenessState = {}
+    this.db = db
     this.awareness = awareness
     this.wsconnected = false
     this.mux = mutex.createMutex()
@@ -119,6 +118,9 @@ export class WebsocketProvider extends Observable {
         })
       }
     }
+    window.addEventListener('beforeunload', () => {
+      awarenessProtocol.removeAwarenessStates(awareness, [this.doc.clientID], null)
+    })
     awareness.on('change', this._awarenessUpdateHandler)
     this.connect()
   }
