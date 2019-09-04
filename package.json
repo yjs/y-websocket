@@ -22,7 +22,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/y-js/y-websocket.git"
+    "url": "git+https://github.com/yjs/y-websocket.git"
   },
   "keywords": [
     "Yjs"
@@ -30,9 +30,9 @@
   "author": "Kevin Jahns <kevin.jahns@protonmail.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/y-js/y-websocket/issues"
+    "url": "https://github.com/yjs/y-websocket/issues"
   },
-  "homepage": "https://github.com/y-js/y-websocket#readme",
+  "homepage": "https://github.com/yjs/y-websocket#readme",
   "standard": {
     "ignore": [
       "/dist",
@@ -40,17 +40,17 @@
     ]
   },
   "dependencies": {
-    "y-protocols": "0.0.7",
-    "lib0": "0.0.5"
+    "y-protocols": "^0.1.0",
+    "lib0": "^0.1.0"
   },
   "devDependencies": {
     "rollup": "^1.1.2",
     "rollup-cli": "^1.0.9",
     "standard": "^12.0.1",
-    "yjs": "13.0.0-94"
+    "yjs": "13.0.0-97"
   },
   "peerDependenies": {
-    "yjs": ">=13.0.0-94"
+    "yjs": ">=13.0.0-97"
   },
   "optionalDependencies": {
     "ws": "^6.2.1"
