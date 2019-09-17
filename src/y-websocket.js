@@ -101,7 +101,7 @@ const setupWS = provider => {
       // log10(wsUnsuccessfulReconnects).
       // The idea is to increase reconnect timeout slowly and have no reconnect
       // timeout at the beginning (log(1) = 0)
-      setTimeout(setupWS, math.min(Math.log10(provider.wsUnsuccessfulReconnects + 1) * reconnectTimeoutBase, maxReconnectTimeout), provider)
+      setTimeout(setupWS, math.min(math.log10(provider.wsUnsuccessfulReconnects + 1) * reconnectTimeoutBase, maxReconnectTimeout), provider)
     }
     websocket.onopen = () => {
       provider.wsLastMessageReceived = time.getUnixTime()

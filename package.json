@@ -41,16 +41,16 @@
   },
   "dependencies": {
     "y-protocols": "^0.1.0",
-    "lib0": "^0.1.0"
+    "lib0": "^0.1.1"
   },
   "devDependencies": {
     "rollup": "^1.1.2",
     "rollup-cli": "^1.0.9",
     "standard": "^12.0.1",
-    "yjs": "13.0.0-97"
+    "yjs": "13.0.0-98"
   },
   "peerDependenies": {
-    "yjs": ">=13.0.0-97"
+    "yjs": ">=13.0.0-98"
   },
   "optionalDependencies": {
     "ws": "^6.2.1"
