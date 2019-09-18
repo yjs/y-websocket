@@ -162,15 +162,12 @@ const pingTimeout = 30000
  * @param {any} conn
  * @param {any} req
  */
-exports.setupWSConnection = (conn, req) => {
+exports.setupWSConnection = (conn, req, { docName = req.url.slice(1), gc = true }) => {
   conn.binaryType = 'arraybuffer'
   // get doc, create if it does not exist yet
-  /**
-   * @type {string}
-   */
-  const docName = req.url.slice(1)
   const doc = map.setIfUndefined(docs, docName, () => {
     const doc = new WSSharedDoc(docName)
+    doc.gc = gc
     if (persistence !== null) {
       persistence.bindState(docName, doc)
     }
