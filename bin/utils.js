@@ -161,8 +161,9 @@ const pingTimeout = 30000
 /**
  * @param {any} conn
  * @param {any} req
+ * @param {any} opts
  */
-exports.setupWSConnection = (conn, req, { docName = req.url.slice(1), gc = true }) => {
+exports.setupWSConnection = (conn, req, { docName = req.url.slice(1), gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
   // get doc, create if it does not exist yet
   const doc = map.setIfUndefined(docs, docName, () => {
