@@ -49,8 +49,8 @@ const readMessage = (provider, buf, emitSynced) => {
   switch (messageType) {
     case messageSync:
       encoding.writeVarUint(encoder, messageSync)
-      const messageType = syncProtocol.readSyncMessage(decoder, encoder, provider.doc, provider)
-      if (emitSynced && messageType === syncProtocol.messageYjsSyncStep2 && !provider.synced) {
+      const syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, provider.doc, provider)
+      if (emitSynced && syncMessageType === syncProtocol.messageYjsSyncStep2 && !provider.synced) {
         provider.synced = true
       }
       break
