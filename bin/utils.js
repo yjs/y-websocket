@@ -29,7 +29,7 @@ if (typeof persistenceDir === 'string') {
  * @param {{bindState: function(string,WSSharedDoc):void,
  * writeState:function(string,WSSharedDoc):Promise}|null} persistence_
  */
-export const setPersistence = persistence_ => {
+exports.setPersistence = persistence_ => {
   persistence = persistence_
 }
 
