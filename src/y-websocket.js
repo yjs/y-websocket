@@ -232,17 +232,14 @@ export class WebsocketProvider extends Observable {
      * @param {any} origin
      */
     this._awarenessUpdateHandler = ({ added, updated, removed }, origin) => {
+      const changedClients = added.concat(updated).concat(removed)
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageAwareness)
-      encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(awareness, [doc.clientID]))
+      encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients))
       broadcastMessage(this, encoding.toUint8Array(encoder))
     }
     window.addEventListener('beforeunload', () => {
-      // broadcast message with local awareness state set to null (indicating disconnect)
-      const encoder = encoding.createEncoder()
-      encoding.writeVarUint(encoder, messageAwareness)
-      encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(this.awareness, [this.doc.clientID], new Map()))
-      broadcastMessage(this, encoding.toUint8Array(encoder))
+      awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload')
     })
     awareness.on('change', this._awarenessUpdateHandler)
     this._checkInterval = setInterval(() => {
