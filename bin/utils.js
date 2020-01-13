@@ -2,10 +2,10 @@ const Y = require('yjs')
 const syncProtocol = require('y-protocols/dist/sync.js')
 const awarenessProtocol = require('y-protocols/dist/awareness.js')
 
-const encoding = require('lib0/dist/encoding.js')
-const decoding = require('lib0/dist/decoding.js')
-const mutex = require('lib0/dist/mutex.js')
-const map = require('lib0/dist/map.js')
+const encoding = require('lib0/dist/encoding.cjs')
+const decoding = require('lib0/dist/decoding.cjs')
+const mutex = require('lib0/dist/mutex.cjs')
+const map = require('lib0/dist/map.cjs')
 
 const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1
@@ -16,7 +16,7 @@ const wsReadyStateClosed = 3 // eslint-disable-line
 const gcEnabled = process.env.GC !== 'false' && process.env.GC !== '0'
 const persistenceDir = process.env.YPERSISTENCE
 /**
- * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise}|null}
+ * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise<any>}|null}
  */
 let persistence = null
 if (typeof persistenceDir === 'string') {
@@ -27,7 +27,7 @@ if (typeof persistenceDir === 'string') {
 
 /**
  * @param {{bindState: function(string,WSSharedDoc):void,
- * writeState:function(string,WSSharedDoc):Promise}|null} persistence_
+ * writeState:function(string,WSSharedDoc):Promise<any>}|null} persistence_
  */
 exports.setPersistence = persistence_ => {
   persistence = persistence_

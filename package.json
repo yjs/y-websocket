@@ -2,15 +2,14 @@
   "name": "y-websocket",
   "version": "1.0.7",
   "description": "Websockets provider for Yjs",
-  "main": "./dist/y-websocket.js",
+  "main": "./dist/y-websocket.cjs",
   "module": "./src/y-websocket.js",
   "sideEffects": false,
   "scripts": {
     "start": "node ./bin/server.js",
     "dist": "rm -rf dist && rollup -c",
-    "test": "echo 'should lint here'",
-    "lint": "standard",
-    "preversion": "npm run lint && npm run test && npm run dist"
+    "lint": "standard && tsc",
+    "preversion": "npm run lint && npm run dist"
   },
   "bin": {
     "y-websocket-server": "./bin/server.js"
@@ -40,14 +39,15 @@
     ]
   },
   "dependencies": {
-    "y-protocols": "^0.1.0",
-    "lib0": "^0.1.1"
+    "lib0": "^0.2.3",
+    "y-protocols": "^0.2.0"
   },
   "devDependencies": {
-    "rollup": "^1.1.2",
+    "rollup": "^1.29.0",
     "rollup-cli": "^1.0.9",
     "standard": "^12.0.1",
-    "yjs": "13.0.0-98"
+    "typescript": "^3.7.4",
+    "yjs": "13.0.0-105"
   },
   "peerDependenies": {
     "yjs": ">=13.0.0-98"

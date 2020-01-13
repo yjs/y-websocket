@@ -3,14 +3,14 @@ export default {
   external: id => /^(lib0|yjs|y-protocols)/.test(id),
   output: [{
     name: 'y-websocket',
-    file: 'dist/y-websocket.js',
+    file: 'dist/y-websocket.cjs',
     format: 'cjs',
     sourcemap: true,
     paths: path => {
       if (/^lib0\//.test(path)) {
-        return `lib0/dist${path.slice(4)}`
+        return `lib0/dist${path.slice(4, -3)}.cjs`
       } else if (/^y-protocols\//.test(path)) {
-        return `y-protocols/dist${path.slice(11)}`
+        return `y-protocols/dist${path.slice(11, -3)}.cjs`
       }
       return path
     }

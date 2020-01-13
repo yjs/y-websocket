@@ -62,7 +62,7 @@ const readMessage = (provider, buf, emitSynced) => {
       awarenessProtocol.applyAwarenessUpdate(provider.awareness, decoding.readVarUint8Array(decoder), provider)
       break
     case messageAuth:
-      authProtocol.readAuthMessage(decoder, provider, permissionDeniedHandler)
+      authProtocol.readAuthMessage(decoder, provider.doc, permissionDeniedHandler)
       break
     default:
       console.error('Unable to compute message')

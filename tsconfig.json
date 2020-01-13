@@ -21,7 +21,7 @@
 
     /* Strict Type-Checking Options */
     "strict": true,                           /* Enable all strict type-checking options. */
-    "noImplicitAny": true,                 /* Raise error on expressions and declarations with an implied 'any' type. */
+    "noImplicitAny": false,                 /* Raise error on expressions and declarations with an implied 'any' type. */
     // "strictNullChecks": true,              /* Enable strict null checks. */
     // "strictFunctionTypes": true,           /* Enable strict checking of function types. */
     // "strictPropertyInitialization": true,  /* Enable strict checking of property initialization in classes. */
@@ -40,6 +40,7 @@
     "paths": {
       "yjs": ["node_modules/yjs/src/index.js"],
       "lib0/*": ["node_modules/lib0/*"],
+      "lib0/dist/*": ["node_modules/lib0/dist/*"],
       "y-protocols/*": ["node_modules/y-protocols/*"]
     },
     // "rootDirs": [],                        /* List of root folders whose combined content represents the structure of the project at runtime. */
@@ -59,5 +60,6 @@
     // "experimentalDecorators": true,        /* Enables experimental support for ES7 decorators. */
     // "emitDecoratorMetadata": true,         /* Enables experimental support for emitting type metadata for decorators. */
     "maxNodeModuleJsDepth": 5
-  }
+  },
+  "include": ["./src/y-websocket.js"]
 }
