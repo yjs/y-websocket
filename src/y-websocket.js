@@ -167,9 +167,9 @@ export class WebsocketProvider extends Observable {
    * @param {string} url
    * @param {string} roomname
    * @param {Y.Doc} doc
-   * @param {{awareness:awarenessProtocol.Awareness,db:any|null}} conf
+   * @param {{connect:boolean,awareness:awarenessProtocol.Awareness,db:any|null}} conf
    */
-  constructor (url, roomname, doc, { awareness = new awarenessProtocol.Awareness(doc), db = null } = /** @type {any} */ ({})) {
+  constructor (url, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), db = null } = /** @type {any} */ ({})) {
     super()
     // ensure that url is always ends with /
     while (url[url.length - 1] === '/') {
@@ -202,7 +202,7 @@ export class WebsocketProvider extends Observable {
      * Whether to connect to other peers or not
      * @type {boolean}
      */
-    this.shouldConnect = true
+    this.shouldConnect = connect
     /**
      * @param {ArrayBuffer} data
      */
@@ -227,6 +227,7 @@ export class WebsocketProvider extends Observable {
         broadcastMessage(this, encoding.toUint8Array(encoder))
       }
     }
+    this.doc.on('update', this._updateHandler)
     /**
      * @param {any} changed
      * @param {any} origin
@@ -249,7 +250,9 @@ export class WebsocketProvider extends Observable {
         /** @type {WebSocket} */ (this.ws).close()
       }
     })
-    this.connect()
+    if (connect) {
+      this.connect()
+    }
   }
   /**
    * @type {boolean}
@@ -267,55 +270,60 @@ export class WebsocketProvider extends Observable {
     clearInterval(this._checkInterval)
     this.disconnect()
     this.awareness.off('change', this._awarenessUpdateHandler)
+    this.doc.off('update', this._updateHandler)
     super.destroy()
   }
-  disconnect () {
-    this.shouldConnect = false
+  connectBc () {
+    if (!this.bcconnected) {
+      bc.subscribe(this.url, this._bcSubscriber)
+      this.bcconnected = true
+    }
+    // send sync step1 to bc
+    this.mux(() => {
+      // write sync step 1
+      const encoderSync = encoding.createEncoder()
+      encoding.writeVarUint(encoderSync, messageSync)
+      syncProtocol.writeSyncStep1(encoderSync, this.doc)
+      bc.publish(this.url, encoding.toUint8Array(encoderSync))
+      // broadcast local state
+      const encoderState = encoding.createEncoder()
+      encoding.writeVarUint(encoderState, messageSync)
+      syncProtocol.writeSyncStep2(encoderState, this.doc)
+      bc.publish(this.url, encoding.toUint8Array(encoderState))
+      // write queryAwareness
+      const encoderAwarenessQuery = encoding.createEncoder()
+      encoding.writeVarUint(encoderAwarenessQuery, messageQueryAwareness)
+      bc.publish(this.url, encoding.toUint8Array(encoderAwarenessQuery))
+      // broadcast local awareness state
+      const encoderAwarenessState = encoding.createEncoder()
+      encoding.writeVarUint(encoderAwarenessState, messageAwareness)
+      encoding.writeVarUint8Array(encoderAwarenessState, awarenessProtocol.encodeAwarenessUpdate(this.awareness, [this.doc.clientID]))
+      bc.publish(this.url, encoding.toUint8Array(encoderAwarenessState))
+    })
+  }
+  disconnectBc () {
     // broadcast message with local awareness state set to null (indicating disconnect)
     const encoder = encoding.createEncoder()
     encoding.writeVarUint(encoder, messageAwareness)
     encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(this.awareness, [this.doc.clientID], new Map()))
     broadcastMessage(this, encoding.toUint8Array(encoder))
-    if (this.ws !== null) {
-      this.ws.close()
-    }
     if (this.bcconnected) {
       bc.unsubscribe(this.url, this._bcSubscriber)
       this.bcconnected = false
     }
-    this.doc.off('update', this._updateHandler)
+  }
+  disconnect () {
+    this.shouldConnect = false
+    this.disconnectBc()
+    if (this.ws !== null) {
+      this.ws.close()
+    }
   }
   connect () {
     this.shouldConnect = true
     if (!this.wsconnected && this.ws === null) {
       setupWS(this)
-      if (!this.bcconnected) {
-        bc.subscribe(this.url, this._bcSubscriber)
-        this.bcconnected = true
-      }
-      // send sync step1 to bc
-      this.mux(() => {
-        // write sync step 1
-        const encoderSync = encoding.createEncoder()
-        encoding.writeVarUint(encoderSync, messageSync)
-        syncProtocol.writeSyncStep1(encoderSync, this.doc)
-        bc.publish(this.url, encoding.toUint8Array(encoderSync))
-        // broadcast local state
-        const encoderState = encoding.createEncoder()
-        encoding.writeVarUint(encoderState, messageSync)
-        syncProtocol.writeSyncStep2(encoderState, this.doc)
-        bc.publish(this.url, encoding.toUint8Array(encoderState))
-        // write queryAwareness
-        const encoderAwarenessQuery = encoding.createEncoder()
-        encoding.writeVarUint(encoderAwarenessQuery, messageQueryAwareness)
-        bc.publish(this.url, encoding.toUint8Array(encoderAwarenessQuery))
-        // broadcast local awareness state
-        const encoderAwarenessState = encoding.createEncoder()
-        encoding.writeVarUint(encoderAwarenessState, messageAwareness)
-        encoding.writeVarUint8Array(encoderAwarenessState, awarenessProtocol.encodeAwarenessUpdate(this.awareness, [this.doc.clientID]))
-        bc.publish(this.url, encoding.toUint8Array(encoderAwarenessState))
-      })
-      this.doc.on('update', this._updateHandler)
+      this.connectBc()
     }
   }
 }
