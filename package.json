@@ -4,10 +4,11 @@
   "description": "Websockets provider for Yjs",
   "main": "./dist/y-websocket.cjs",
   "module": "./src/y-websocket.js",
+  "types": "./dist/src/y-websocket.d.ts",
   "sideEffects": false,
   "scripts": {
     "start": "node ./bin/server.js",
-    "dist": "rm -rf dist && rollup -c",
+    "dist": "rm -rf dist && rollup -c && tsc",
     "lint": "standard && tsc",
     "preversion": "npm run lint && npm run dist"
   },
