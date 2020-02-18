@@ -177,7 +177,7 @@ export class WebsocketProvider extends Observable {
       serverUrl = serverUrl.slice(0, serverUrl.length - 1)
     }
     const encodedParams = url.encodeQueryParams(params)
-    this.url = serverUrl + '/' + roomname + (encodedParams.length === 0 ? '' : '&' + encodedParams)
+    this.url = serverUrl + '/' + roomname + (encodedParams.length === 0 ? '' : '?' + encodedParams)
     this.roomname = roomname
     this.doc = doc
     /**
