@@ -1,6 +1,6 @@
 {
   "name": "y-websocket",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Websockets provider for Yjs",
   "main": "./dist/y-websocket.cjs",
   "module": "./src/y-websocket.js",
