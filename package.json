@@ -48,10 +48,10 @@
     "rollup-cli": "^1.0.9",
     "standard": "^12.0.1",
     "typescript": "^3.7.5",
-    "yjs": "13.0.0-105"
+    "yjs": "13.0.4"
   },
   "peerDependenies": {
-    "yjs": ">=13.0.0-98"
+    "yjs": "^13.0.4"
   },
   "optionalDependencies": {
     "ws": "^6.2.1"
