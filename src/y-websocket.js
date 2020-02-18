@@ -19,6 +19,7 @@ import * as awarenessProtocol from 'y-protocols/awareness.js'
 import * as mutex from 'lib0/mutex.js'
 import { Observable } from 'lib0/observable.js'
 import * as math from 'lib0/math.js'
+import * as url from 'lib0/url.js'
 
 const messageSync = 0
 const messageQueryAwareness = 3
@@ -164,18 +165,19 @@ const broadcastMessage = (provider, buf) => {
  */
 export class WebsocketProvider extends Observable {
   /**
-   * @param {string} url
+   * @param {string} serverUrl
    * @param {string} roomname
    * @param {Y.Doc} doc
-   * @param {{connect:boolean,awareness:awarenessProtocol.Awareness,db:any|null}} conf
+   * @param {{connect:boolean,awareness:awarenessProtocol.Awareness,db:any|null,params:Object<string,string>}} conf
    */
-  constructor (url, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), db = null } = /** @type {any} */ ({})) {
+  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), db = null, params = {} } = /** @type {any} */ ({})) {
     super()
     // ensure that url is always ends with /
-    while (url[url.length - 1] === '/') {
-      url = url.slice(0, url.length - 1)
+    while (serverUrl[serverUrl.length - 1] === '/') {
+      serverUrl = serverUrl.slice(0, serverUrl.length - 1)
     }
-    this.url = url + '/' + roomname
+    const encodedParams = url.encodeQueryParams(params)
+    this.url = serverUrl + '/' + roomname + (encodedParams.length === 0 ? '' : '&' + encodedParams)
     this.roomname = roomname
     this.doc = doc
     /**
