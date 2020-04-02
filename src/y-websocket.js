@@ -251,7 +251,7 @@ export class WebsocketProvider extends Observable {
         // updates (which are updated every 15 seconds)
         /** @type {WebSocket} */ (this.ws).close()
       }
-    }, 500)
+    }, messageReconnectTimeout / 10)
     if (connect) {
       this.connect()
     }
