@@ -10,6 +10,7 @@
     "start": "node ./bin/server.js",
     "dist": "rm -rf dist && rollup -c && tsc",
     "lint": "standard && tsc",
+    "test": "npm run lint",
     "preversion": "npm run lint && npm run dist"
   },
   "bin": {
@@ -40,18 +41,18 @@
     ]
   },
   "dependencies": {
-    "lib0": "^0.2.15",
-    "y-protocols": "^0.2.0"
+    "lib0": "^0.2.22",
+    "y-protocols": "^0.2.3"
   },
   "devDependencies": {
     "rollup": "^1.31.1",
     "rollup-cli": "^1.0.9",
     "standard": "^12.0.1",
     "typescript": "^3.7.5",
-    "yjs": "13.0.4"
+    "yjs": "13.0.5"
   },
   "peerDependenies": {
-    "yjs": "^13.0.4"
+    "yjs": "^13.0.0"
   },
   "optionalDependencies": {
     "ws": "^6.2.1"

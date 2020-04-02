@@ -48,13 +48,14 @@ const readMessage = (provider, buf, emitSynced) => {
   const encoder = encoding.createEncoder()
   const messageType = decoding.readVarUint(decoder)
   switch (messageType) {
-    case messageSync:
+    case messageSync: {
       encoding.writeVarUint(encoder, messageSync)
       const syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, provider.doc, provider)
       if (emitSynced && syncMessageType === syncProtocol.messageYjsSyncStep2 && !provider.synced) {
         provider.synced = true
       }
       break
+    }
     case messageQueryAwareness:
       encoding.writeVarUint(encoder, messageAwareness)
       encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(provider.awareness, Array.from(provider.awareness.getStates().keys())))
@@ -257,18 +258,21 @@ export class WebsocketProvider extends Observable {
       this.connect()
     }
   }
+
   /**
    * @type {boolean}
    */
   get synced () {
     return this._synced
   }
+
   set synced (state) {
     if (this._synced !== state) {
       this._synced = state
       this.emit('sync', [state])
     }
   }
+
   destroy () {
     clearInterval(this._checkInterval)
     this.disconnect()
@@ -276,6 +280,7 @@ export class WebsocketProvider extends Observable {
     this.doc.off('update', this._updateHandler)
     super.destroy()
   }
+
   connectBc () {
     if (!this.bcconnected) {
       bc.subscribe(this.bcChannel, this._bcSubscriber)
@@ -304,6 +309,7 @@ export class WebsocketProvider extends Observable {
       bc.publish(this.bcChannel, encoding.toUint8Array(encoderAwarenessState))
     })
   }
+
   disconnectBc () {
     // broadcast message with local awareness state set to null (indicating disconnect)
     const encoder = encoding.createEncoder()
@@ -315,6 +321,7 @@ export class WebsocketProvider extends Observable {
       this.bcconnected = false
     }
   }
+
   disconnect () {
     this.shouldConnect = false
     this.disconnectBc()
@@ -322,6 +329,7 @@ export class WebsocketProvider extends Observable {
       this.ws.close()
     }
   }
+
   connect () {
     this.shouldConnect = true
     if (!this.wsconnected && this.ws === null) {
