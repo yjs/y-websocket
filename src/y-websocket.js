@@ -246,7 +246,7 @@ export class WebsocketProvider extends Observable {
     window.addEventListener('beforeunload', () => {
       awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload')
     })
-    awareness.on('change', this._awarenessUpdateHandler)
+    awareness.on('update', this._awarenessUpdateHandler)
     this._checkInterval = setInterval(() => {
       if (this.wsconnected && messageReconnectTimeout < time.getUnixTime() - this.wsLastMessageReceived) {
         // no message received in a long time - not even your own awareness
@@ -276,7 +276,7 @@ export class WebsocketProvider extends Observable {
   destroy () {
     clearInterval(this._checkInterval)
     this.disconnect()
-    this.awareness.off('change', this._awarenessUpdateHandler)
+    this.awareness.off('update', this._awarenessUpdateHandler)
     this.doc.off('update', this._updateHandler)
     super.destroy()
   }

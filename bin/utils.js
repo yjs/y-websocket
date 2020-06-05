@@ -95,7 +95,7 @@ class WSSharedDoc extends Y.Doc {
         send(this, c, buff)
       })
     }
-    this.awareness.on('change', awarenessChangeHandler)
+    this.awareness.on('update', awarenessChangeHandler)
     this.on('update', updateHandler)
   }
 }

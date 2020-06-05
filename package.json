@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "lib0": "^0.2.28",
-    "y-protocols": "^0.2.3"
+    "y-protocols": "^1.0.0"
   },
   "devDependencies": {
     "rollup": "^1.32.1",
