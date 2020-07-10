@@ -78,7 +78,7 @@ const readMessage = (provider, buf, emitSynced) => {
  */
 const setupWS = provider => {
   if (provider.shouldConnect && provider.ws === null) {
-    const websocket = new WebSocket(provider.url)
+    const websocket = new provider._WS(provider.url)
     websocket.binaryType = 'arraybuffer'
     provider.ws = websocket
     provider.wsconnecting = true
@@ -169,9 +169,13 @@ export class WebsocketProvider extends Observable {
    * @param {string} serverUrl
    * @param {string} roomname
    * @param {Y.Doc} doc
-   * @param {{connect:boolean,awareness:awarenessProtocol.Awareness,db:any|null,params:Object<string,string>}} conf
+   * @param {object} [opts]
+   * @param {boolean} [opts.connect]
+   * @param {awarenessProtocol.Awareness} [opts.awareness]
+   * @param {Object<string,string>} [opts.params]
+   * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
    */
-  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), db = null, params = {} } = /** @type {any} */ ({})) {
+  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket } = {}) {
     super()
     // ensure that url is always ends with /
     while (serverUrl[serverUrl.length - 1] === '/') {
@@ -182,11 +186,11 @@ export class WebsocketProvider extends Observable {
     this.url = serverUrl + '/' + roomname + (encodedParams.length === 0 ? '' : '?' + encodedParams)
     this.roomname = roomname
     this.doc = doc
+    this._WS = WebSocketPolyfill
     /**
      * @type {Object<string,Object>}
      */
     this._localAwarenessState = {}
-    this.db = db
     this.awareness = awareness
     this.wsconnected = false
     this.wsconnecting = false
