@@ -20,9 +20,22 @@ const persistenceDir = process.env.YPERSISTENCE
  */
 let persistence = null
 if (typeof persistenceDir === 'string') {
+  console.info('Persisting documents to "' + persistenceDir + '"')
   // @ts-ignore
-  const LevelDbPersistence = require('y-leveldb').LevelDbPersistence
-  persistence = new LevelDbPersistence(persistenceDir)
+  const LeveldbPersistence = require('y-leveldb').LeveldbPersistence
+  const ldb = new LeveldbPersistence(persistenceDir)
+  persistence = {
+    bindState: async (docName, ydoc) => {
+      const persistedYdoc = await ldb.getYDoc(docName)
+      const newUpdates = Y.encodeStateAsUpdate(ydoc)
+      ldb.storeUpdate(docName, newUpdates)
+      Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc))
+      ydoc.on('update', update => {
+        ldb.storeUpdate(docName, update)
+      })
+    },
+    writeState: async (docName, ydoc) => {}
+  }
 }
 
 /**

@@ -34,7 +34,7 @@ Since npm symlinks the `y-websocket-server` executable from your local `./node_m
 
 Persist document updates in a LevelDB database.
 
-See [LevelDB Persistence](#LevelDB Persistence) for more info.
+See [LevelDB Persistence](https://github.com/yjs/y-leveldb) for more info.
 
 ```sh
 PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/y-websocket/bin/server.js

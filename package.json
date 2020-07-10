@@ -15,7 +15,7 @@
     "dist": "rm -rf dist && rollup -c && tsc",
     "lint": "standard && tsc",
     "test": "npm run lint",
-    "preversion": "npm run lint && npm run dist"
+    "preversion": "npm run lint && npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
   },
   "bin": {
     "y-websocket-server": "./bin/server.js"
@@ -46,6 +46,7 @@
   },
   "dependencies": {
     "lib0": "^0.2.31",
+    "y-leveldb": "^0.1.0",
     "y-protocols": "^1.0.0"
   },
   "devDependencies": {
