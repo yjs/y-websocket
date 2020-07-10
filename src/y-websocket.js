@@ -174,8 +174,9 @@ export class WebsocketProvider extends Observable {
    * @param {awarenessProtocol.Awareness} [opts.awareness]
    * @param {Object<string,string>} [opts.params]
    * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
+   * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    */
-  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket } = {}) {
+  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1 } = {}) {
     super()
     // ensure that url is always ends with /
     while (serverUrl[serverUrl.length - 1] === '/') {
@@ -211,6 +212,32 @@ export class WebsocketProvider extends Observable {
      * @type {boolean}
      */
     this.shouldConnect = connect
+
+    /**
+     * @type {NodeJS.Timeout | number}
+     */
+    this._resyncInterval = 0
+    if (resyncInterval > 0) {
+      this._resyncInterval = setInterval(() => {
+        if (this.ws) {
+          if (!this.synced) {
+            alert(`
+  Please report that this message was shown to https://github.com/yjs/y-websocket/issues
+
+  Thank you! ❤
+
+  (Sorry for showing this message..`)
+            console.warn('Client was unsynced anyway')
+          }
+          // resend sync step 1
+          const encoder = encoding.createEncoder()
+          encoding.writeVarUint(encoder, messageSync)
+          syncProtocol.writeSyncStep1(encoder, doc)
+          this.ws.send(encoding.toUint8Array(encoder))
+        }
+      }, resyncInterval)
+    }
+
     /**
      * @param {ArrayBuffer} data
      */
@@ -278,6 +305,9 @@ export class WebsocketProvider extends Observable {
   }
 
   destroy () {
+    if (this._resyncInterval !== 0) {
+      clearInterval(/** @type {NodeJS.Timeout} */ (this._resyncInterval))
+    }
     clearInterval(this._checkInterval)
     this.disconnect()
     this.awareness.off('update', this._awarenessUpdateHandler)
