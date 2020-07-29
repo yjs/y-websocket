@@ -52,7 +52,7 @@ Can take the following ENV variables:
 - CALLBACK_OBJECTS : JSON of shared objects to get data. ('{"SHARED_OBJECT_NAME":"SHARED_OBJECT_TYPE}')
 
 ```sh
-CALLBACK_URL=http://localhost:3000/ CALLBACK_OBJECTS='{"prosemirror":"XmlFragment"}' node ./node_modules/y-websocket/bin/server.js
+CALLBACK_URL=http://localhost:3000/ CALLBACK_OBJECTS='{"prosemirror":"XmlFragment"}' npm start
 ```
 This would send a callback to localhost:3000 every 2 seconds (default DEBOUNCE_WAIT) with the data of an XmlFragment named Prosemirror in the body.
 
