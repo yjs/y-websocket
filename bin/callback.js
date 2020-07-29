@@ -4,15 +4,7 @@ const CALLBACK_URL = process.env.CALLBACK_URL ? new URL(process.env.CALLBACK_URL
 const CALLBACK_TIMEOUT = process.env.CALLBACK_TIMEOUT || 5000
 const CALLBACK_OBJECTS = process.env.CALLBACK_OBJECTS ? JSON.parse(process.env.CALLBACK_OBJECTS) : {}
 
-/**
- * @return {Boolean}
- */
-exports.isCallbackSet = () => {
-  if (CALLBACK_URL) {
-    return true
-  }
-  return false
-}
+exports.isCallbackSet = !!CALLBACK_URL
 
 /**
  * @param {Uint8Array} update
