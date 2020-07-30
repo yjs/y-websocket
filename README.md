@@ -40,6 +40,54 @@ See [LevelDB Persistence](https://github.com/yjs/y-leveldb) for more info.
 PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/y-websocket/bin/server.js
 ```
 
+**Start a secure websocket server**
+
+You can also use the secure `wss://` protocol, which like `https://`, uses SSL/TLS.  For this, you first need a certificate.  If your server is  using `https://`, you will already have a certificate.  If not, you can obtain one for free from [certbot](https://certbot.eff.org/).  You should then provide the directory in which the certifcate and private key are to be found:
+
+```sh
+PORT=1234 YPERSISTENCE=./dbDir CERTDIR=/etc/letsencrypt/live/example.com node ./node_modules/y-websocket/bin/server.js
+```
+You would then connect using the `wss://` protocol:
+
+```js
+const wsProvider = new WebsocketProvider('wss://localhost:1234', 'my-roomname', doc)
+```
+
+### Providing a service
+The shell commands above are suited to development, wth the websocket server running locally and in a terminal.  However, a websocket service is more useful if it is on a remote server and the server maintains that service continously. This means that it should run as a system service, automatically starting when the server boots and restarting in case of failure.  Moreover,  to avoid problems with firewalls blocking non-standard ports, it should be accessible through port 80 or 443.
+
+The detais of how to do this will depend on the OS.  For most Linux systems, you should set up a `systemd` service, using a unit file something like this:
+
+```sh
+[Unit]
+Description=websocket-server
+[Service]
+ExecStart=<path.to.node_modules>/.bin/y-websocket-server
+Restart=always
+RestartSec=10
+User=root
+Group=root
+Environment='PATH=<path.to.node.>node/v14.4.0/bin' 'YPERSISTENCE=<path.to.dbDir>/dbDir' 'CERTDIR=<path.to.certificates>'
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=websocket-server
+[Install]
+WantedBy=multi-user.target
+```
+If you are (as is most likley) you are already running a web server on ports 80 and 443, you will need to set up a reverse proxy.  For Apache, you should add something like the following to your `.conf` configuration file:
+
+```sh
+SSLProxyEngine on
+ProxyPass /wss  wss://example.com:1234
+```
+
+and your client can then connect to the websocket server with:
+
+```js
+const wsProvider = new WebsocketProvider('wss://example.com/wss', 'my-roomname', doc)
+```
+
+
 ### Scaling
 
 These are mere suggestions how you could scale your server environment.
