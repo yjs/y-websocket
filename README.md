@@ -42,19 +42,20 @@ PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/y-websocket/bin/server.js
 
 **Websocket Server with HTTP callback**
 
-Send a debounced callback to an HTTP server (POST) on document update.
+Send a debounced callback to an HTTP server (`POST`) on document update.
 
 Can take the following ENV variables:
-- CALLBACK_URL : Callback server URL. 
-- CALLBACK_DEBOUNCE_WAIT : Debounce time between callbacks. Defaults to 2 seconds.
-- CALLBACK_DEBOUNCE_MAXWAIT : Maximum time to wait before callback. Defaults to 10 seconds.
-- CALLBACK_TIMEOUT : Timeout for the HTTP call. Defaults to 5 seconds.
-- CALLBACK_OBJECTS : JSON of shared objects to get data. ('{"SHARED_OBJECT_NAME":"SHARED_OBJECT_TYPE}')
+
+* `CALLBACK_URL` : Callback server URL
+* `CALLBACK_DEBOUNCE_WAIT` : Debounce time between callbacks (in ms). Defaults to 2000 ms 
+* `CALLBACK_DEBOUNCE_MAXWAIT` : Maximum time to wait before callback. Defaults to 10 seconds
+* `CALLBACK_TIMEOUT` : Timeout for the HTTP call. Defaults to 5 seconds
+* `CALLBACK_OBJECTS` : JSON of shared objects to get data (`'{"SHARED_OBJECT_NAME":"SHARED_OBJECT_TYPE}'`)
 
 ```sh
 CALLBACK_URL=http://localhost:3000/ CALLBACK_OBJECTS='{"prosemirror":"XmlFragment"}' npm start
 ```
-This would send a callback to localhost:3000 every 2 seconds (default DEBOUNCE_WAIT) with the data of an XmlFragment named Prosemirror in the body.
+This sends a debounced callback to `localhost:3000` 2 seconds after receiving an update (default `DEBOUNCE_WAIT`) with the data of an XmlFragment named `"prosemirror"` in the body.
 
 ### Scaling
 
