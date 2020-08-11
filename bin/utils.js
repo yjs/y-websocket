@@ -58,6 +58,8 @@ exports.setPersistence = persistence_ => {
  * @type {Map<string,WSSharedDoc>}
  */
 const docs = new Map()
+// exporting docs so that others can use it
+exports.docs = docs
 
 const messageSync = 0
 const messageAwareness = 1
