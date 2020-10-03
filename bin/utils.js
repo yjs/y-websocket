@@ -216,9 +216,7 @@ exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[
   doc.conns.set(conn, new Set())
   // listen and reply to events
   conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
-  conn.on('close', () => {
-    closeConn(doc, conn)
-  })
+
   // Check if connection is still alive
   let pongReceived = true
   const pingInterval = setInterval(() => {
@@ -233,12 +231,18 @@ exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[
         conn.ping()
       } catch (e) {
         closeConn(doc, conn)
+        clearInterval(pingInterval)
       }
     }
   }, pingTimeout)
+  conn.on('close', () => {
+    closeConn(doc, conn)
+    clearInterval(pingInterval)
+  })
   conn.on('pong', () => {
     pongReceived = true
   })
+  
   // send sync step 1
   const encoder = encoding.createEncoder()
   encoding.writeVarUint(encoder, messageSync)
