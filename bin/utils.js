@@ -242,17 +242,20 @@ exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[
   conn.on('pong', () => {
     pongReceived = true
   })
-  
-  // send sync step 1
-  const encoder = encoding.createEncoder()
-  encoding.writeVarUint(encoder, messageSync)
-  syncProtocol.writeSyncStep1(encoder, doc)
-  send(doc, conn, encoding.toUint8Array(encoder))
-  const awarenessStates = doc.awareness.getStates()
-  if (awarenessStates.size > 0) {
+  // put the following in a variables in a block so the interval handlers don't keep in in
+  // scope
+  {
+    // send sync step 1
     const encoder = encoding.createEncoder()
-    encoding.writeVarUint(encoder, messageAwareness)
-    encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(doc.awareness, Array.from(awarenessStates.keys())))
+    encoding.writeVarUint(encoder, messageSync)
+    syncProtocol.writeSyncStep1(encoder, doc)
     send(doc, conn, encoding.toUint8Array(encoder))
+    const awarenessStates = doc.awareness.getStates()
+    if (awarenessStates.size > 0) {
+      const encoder = encoding.createEncoder()
+      encoding.writeVarUint(encoder, messageAwareness)
+      encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(doc.awareness, Array.from(awarenessStates.keys())))
+      send(doc, conn, encoding.toUint8Array(encoder))
+    }
   }
 }
