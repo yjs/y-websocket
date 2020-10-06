@@ -1,4 +1,7 @@
 dist
+dbDir
+.DS_Store
 node_modules
 tmp
 .vscode
+*.code-workspace

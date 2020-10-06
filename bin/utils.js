@@ -7,6 +7,14 @@ const decoding = require('lib0/dist/decoding.cjs')
 const mutex = require('lib0/dist/mutex.cjs')
 const map = require('lib0/dist/map.cjs')
 
+const debounce = require('lodash.debounce')
+
+const callbackHandler = require('./callback.js').callbackHandler
+const isCallbackSet = require('./callback.js').isCallbackSet
+
+const CALLBACK_DEBOUNCE_WAIT = process.env.CALLBACK_DEBOUNCE_WAIT || 2000
+const CALLBACK_DEBOUNCE_MAXWAIT = process.env.CALLBACK_DEBOUNCE_MAXWAIT || 10000
+
 const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1
 const wsReadyStateClosing = 2 // eslint-disable-line
@@ -50,6 +58,8 @@ exports.setPersistence = persistence_ => {
  * @type {Map<string,WSSharedDoc>}
  */
 const docs = new Map()
+// exporting docs so that others can use it
+exports.docs = docs
 
 const messageSync = 0
 const messageAwareness = 1
@@ -110,6 +120,13 @@ class WSSharedDoc extends Y.Doc {
     }
     this.awareness.on('update', awarenessChangeHandler)
     this.on('update', updateHandler)
+    if (isCallbackSet) {
+      this.on('update', debounce(
+        callbackHandler,
+        CALLBACK_DEBOUNCE_WAIT,
+        { maxWait: CALLBACK_DEBOUNCE_MAXWAIT }
+      ))
+    }
   }
 }
 
@@ -199,9 +216,7 @@ exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[
   doc.conns.set(conn, new Set())
   // listen and reply to events
   conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
-  conn.on('close', () => {
-    closeConn(doc, conn)
-  })
+
   // Check if connection is still alive
   let pongReceived = true
   const pingInterval = setInterval(() => {
@@ -216,22 +231,31 @@ exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[
         conn.ping()
       } catch (e) {
         closeConn(doc, conn)
+        clearInterval(pingInterval)
       }
     }
   }, pingTimeout)
+  conn.on('close', () => {
+    closeConn(doc, conn)
+    clearInterval(pingInterval)
+  })
   conn.on('pong', () => {
     pongReceived = true
   })
-  // send sync step 1
-  const encoder = encoding.createEncoder()
-  encoding.writeVarUint(encoder, messageSync)
-  syncProtocol.writeSyncStep1(encoder, doc)
-  send(doc, conn, encoding.toUint8Array(encoder))
-  const awarenessStates = doc.awareness.getStates()
-  if (awarenessStates.size > 0) {
+  // put the following in a variables in a block so the interval handlers don't keep in in
+  // scope
+  {
+    // send sync step 1
     const encoder = encoding.createEncoder()
-    encoding.writeVarUint(encoder, messageAwareness)
-    encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(doc.awareness, Array.from(awarenessStates.keys())))
+    encoding.writeVarUint(encoder, messageSync)
+    syncProtocol.writeSyncStep1(encoder, doc)
     send(doc, conn, encoding.toUint8Array(encoder))
+    const awarenessStates = doc.awareness.getStates()
+    if (awarenessStates.size > 0) {
+      const encoder = encoding.createEncoder()
+      encoding.writeVarUint(encoder, messageAwareness)
+      encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(doc.awareness, Array.from(awarenessStates.keys())))
+      send(doc, conn, encoding.toUint8Array(encoder))
+    }
   }
 }
