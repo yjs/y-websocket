@@ -33,18 +33,33 @@ if (typeof persistenceDir === 'string') {
   const LeveldbPersistence = require('y-leveldb').LeveldbPersistence
   const ldb = new LeveldbPersistence(persistenceDir)
   persistence = {
-    bindState: async (docName, ydoc) => {
+    // Sync in-memory and ldb state
+    mutualSync: async (docName, ydoc) => {
       const persistedYdoc = await ldb.getYDoc(docName)
       const newUpdates = Y.encodeStateAsUpdate(ydoc)
       ldb.storeUpdate(docName, newUpdates)
       Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc))
-      ydoc.on('update', update => {
+    },
+
+    bindState: async (docName, ydoc) => {
+      await persistence.mutualSync(docName, ydoc)
+      ydoc.on('update', (update) => {
         ldb.storeUpdate(docName, update)
       })
     },
-    writeState: async (docName, ydoc) => {}
+
+    writeState: async (docName, ydoc) => {},
+
+    // Gets a Y.Doc by name, whether in memory or on disk
+    getYDoc: async (docName) => {
+      const ydoc = findOrCreateDoc(docName)
+      await persistence.mutualSync(docName, ydoc)
+      return ydoc
+    },
   }
 }
+// If enabled, provide access to persistence functions
+exports.persistence = persistence
 
 /**
  * @param {{bindState: function(string,WSSharedDoc):void,
@@ -131,6 +146,24 @@ class WSSharedDoc extends Y.Doc {
 }
 
 /**
+ * @param {string} docName - the name of the Y.Doc to find or create
+ * @param {boolean} gc - whether to allow gc on the doc (applies only when created)
+ */
+function findOrCreateDoc(docName, gc = true) {
+  // get doc, create if it does not exist yet
+  return map.setIfUndefined(docs, docName, () => {
+    const doc = new WSSharedDoc(docName)
+    doc.gc = gc
+    if (persistence !== null) {
+      persistence.bindState(docName, doc)
+    }
+    docs.set(docName, doc)
+    return doc
+  })
+}
+exports.findOrCreateDoc = findOrCreateDoc
+
+/**
  * @param {any} conn
  * @param {WSSharedDoc} doc
  * @param {Uint8Array} message
@@ -196,6 +229,7 @@ const send = (doc, conn, m) => {
 
 const pingTimeout = 30000
 
+
 /**
  * @param {any} conn
  * @param {any} req
@@ -204,15 +238,7 @@ const pingTimeout = 30000
 exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
   // get doc, create if it does not exist yet
-  const doc = map.setIfUndefined(docs, docName, () => {
-    const doc = new WSSharedDoc(docName)
-    doc.gc = gc
-    if (persistence !== null) {
-      persistence.bindState(docName, doc)
-    }
-    docs.set(docName, doc)
-    return doc
-  })
+  const doc = findOrCreateDoc(docName, gc)
   doc.conns.set(conn, new Set())
   // listen and reply to events
   conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
