@@ -220,15 +220,6 @@ export class WebsocketProvider extends Observable {
     if (resyncInterval > 0) {
       this._resyncInterval = setInterval(() => {
         if (this.ws) {
-          if (!this.synced) {
-            alert(`
-  Please report that this message was shown to https://github.com/yjs/y-websocket/issues
-
-  Thank you! ❤
-
-  (Sorry for showing this message..`)
-            console.warn('Client was unsynced anyway')
-          }
           // resend sync step 1
           const encoder = encoding.createEncoder()
           encoding.writeVarUint(encoder, messageSync)
