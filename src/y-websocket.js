@@ -146,7 +146,7 @@ const broadcastMessage = (provider, buf) => {
   }
   if (provider.bcconnected) {
     provider.mux(() => {
-      bc.publish(provider.url, buf)
+      bc.publish(provider.bcChannel, buf)
     })
   }
 }
