@@ -23,6 +23,16 @@ const wsReadyStateClosed = 3 // eslint-disable-line
 // disable gc when using snapshots!
 const gcEnabled = process.env.GC !== 'false' && process.env.GC !== '0'
 const persistenceDir = process.env.YPERSISTENCE
+
+/**
+ * If persistence is enabled, performs two-way sync between memory and disk stores.
+ * If persistence is not enabled, does nothing.
+ * 
+ * @param {string} docName the Y.Doc's name in disk store
+ * @param {WSSharedDoc} ydoc the in-memory Y.Doc
+ */
+let mutualSync = async (docName, ydoc) => {}
+
 /**
  * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise<any>}|null}
  */
@@ -32,17 +42,24 @@ if (typeof persistenceDir === 'string') {
   // @ts-ignore
   const LeveldbPersistence = require('y-leveldb').LeveldbPersistence
   const ldb = new LeveldbPersistence(persistenceDir)
+
+  // Sync in-memory and ldb state
+  mutualSync = async (docName, ydoc) => {
+    const persistedYdoc = await ldb.getYDoc(docName)
+    const newUpdates = Y.encodeStateAsUpdate(ydoc)
+    ldb.storeUpdate(docName, newUpdates)
+    Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc))
+  }
+
   persistence = {
     bindState: async (docName, ydoc) => {
-      const persistedYdoc = await ldb.getYDoc(docName)
-      const newUpdates = Y.encodeStateAsUpdate(ydoc)
-      ldb.storeUpdate(docName, newUpdates)
-      Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc))
-      ydoc.on('update', update => {
+      await mutualSync(docName, ydoc)
+      ydoc.on('update', (update) => {
         ldb.storeUpdate(docName, update)
       })
     },
-    writeState: async (docName, ydoc) => {}
+
+    writeState: async (docName, ydoc) => {},
   }
 }
 
@@ -131,6 +148,35 @@ class WSSharedDoc extends Y.Doc {
 }
 
 /**
+ * @param {string} docName - the name of the Y.Doc to find or initialize
+ * @param {boolean} gc - whether to allow gc on the doc (applies only when created)
+ */
+function getOrInitDoc(docName, gc = true) {
+  // get doc, create if it does not exist yet
+  return map.setIfUndefined(docs, docName, () => {
+    const doc = new WSSharedDoc(docName)
+    doc.gc = gc
+    if (persistence !== null) {
+      persistence.bindState(docName, doc)
+    }
+    docs.set(docName, doc)
+    return doc
+  })
+}
+
+/**
+ * Gets a Y.Doc by name, whether in memory or on disk
+ * 
+ * @param {string} docName - the name of the Y.Doc to find or create
+ */
+async function getOrCreateDoc(docName, gc = true) {
+  const ydoc = getOrInitDoc(docName, gc)
+  await mutualSync(docName, ydoc)
+  return ydoc
+}
+exports.getOrCreateDoc = getOrCreateDoc
+
+/**
  * @param {any} conn
  * @param {WSSharedDoc} doc
  * @param {Uint8Array} message
@@ -196,6 +242,7 @@ const send = (doc, conn, m) => {
 
 const pingTimeout = 30000
 
+
 /**
  * @param {any} conn
  * @param {any} req
@@ -203,16 +250,8 @@ const pingTimeout = 30000
  */
 exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
-  // get doc, create if it does not exist yet
-  const doc = map.setIfUndefined(docs, docName, () => {
-    const doc = new WSSharedDoc(docName)
-    doc.gc = gc
-    if (persistence !== null) {
-      persistence.bindState(docName, doc)
-    }
-    docs.set(docName, doc)
-    return doc
-  })
+  // get doc, initialize if it does not exist yet
+  const doc = getOrInitDoc(docName, gc)
   doc.conns.set(conn, new Set())
   // listen and reply to events
   conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
