@@ -188,10 +188,6 @@ export class WebsocketProvider extends Observable {
     this.roomname = roomname
     this.doc = doc
     this._WS = WebSocketPolyfill
-    /**
-     * @type {Object<string,Object>}
-     */
-    this._localAwarenessState = {}
     this.awareness = awareness
     this.wsconnected = false
     this.wsconnecting = false
