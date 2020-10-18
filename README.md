@@ -12,7 +12,7 @@ The Websocket Provider is a solid choice if you want a central source that handl
 
 ```js
 import * as Y from 'yjs'
-import { WebsocketProvider } from 'yjs/provider/websocket.js'
+import { WebsocketProvider } from 'y-websocket'
 
 const doc = new Y.Doc()
 const wsProvider = new WebsocketProvider('ws://localhost:1234', 'my-roomname', doc)
