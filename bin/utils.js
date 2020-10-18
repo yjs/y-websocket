@@ -12,8 +12,8 @@ const debounce = require('lodash.debounce')
 const callbackHandler = require('./callback.js').callbackHandler
 const isCallbackSet = require('./callback.js').isCallbackSet
 
-const CALLBACK_DEBOUNCE_WAIT = process.env.CALLBACK_DEBOUNCE_WAIT || 2000
-const CALLBACK_DEBOUNCE_MAXWAIT = process.env.CALLBACK_DEBOUNCE_MAXWAIT || 10000
+const CALLBACK_DEBOUNCE_WAIT = parseInt(process.env.CALLBACK_DEBOUNCE_WAIT) || 2000
+const CALLBACK_DEBOUNCE_MAXWAIT = parseInt(process.env.CALLBACK_DEBOUNCE_MAXWAIT) || 10000
 
 const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1
@@ -23,18 +23,8 @@ const wsReadyStateClosed = 3 // eslint-disable-line
 // disable gc when using snapshots!
 const gcEnabled = process.env.GC !== 'false' && process.env.GC !== '0'
 const persistenceDir = process.env.YPERSISTENCE
-
 /**
- * If persistence is enabled, performs two-way sync between memory and disk stores.
- * If persistence is not enabled, does nothing.
- * 
- * @param {string} docName the Y.Doc's name in disk store
- * @param {WSSharedDoc} ydoc the in-memory Y.Doc
- */
-let mutualSync = async (docName, ydoc) => {}
-
-/**
- * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise<any>}|null}
+ * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise<any>, provider: any}|null}
  */
 let persistence = null
 if (typeof persistenceDir === 'string') {
@@ -42,34 +32,34 @@ if (typeof persistenceDir === 'string') {
   // @ts-ignore
   const LeveldbPersistence = require('y-leveldb').LeveldbPersistence
   const ldb = new LeveldbPersistence(persistenceDir)
-
-  // Sync in-memory and ldb state
-  mutualSync = async (docName, ydoc) => {
-    const persistedYdoc = await ldb.getYDoc(docName)
-    const newUpdates = Y.encodeStateAsUpdate(ydoc)
-    ldb.storeUpdate(docName, newUpdates)
-    Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc))
-  }
-
   persistence = {
+    provider: ldb,
     bindState: async (docName, ydoc) => {
-      await mutualSync(docName, ydoc)
-      ydoc.on('update', (update) => {
+      const persistedYdoc = await ldb.getYDoc(docName)
+      const newUpdates = Y.encodeStateAsUpdate(ydoc)
+      ldb.storeUpdate(docName, newUpdates)
+      Y.applyUpdate(ydoc, Y.encodeStateAsUpdate(persistedYdoc))
+      ydoc.on('update', update => {
         ldb.storeUpdate(docName, update)
       })
     },
-
-    writeState: async (docName, ydoc) => {},
+    writeState: async (docName, ydoc) => {}
   }
 }
 
 /**
  * @param {{bindState: function(string,WSSharedDoc):void,
- * writeState:function(string,WSSharedDoc):Promise<any>}|null} persistence_
+ * writeState:function(string,WSSharedDoc):Promise<any>,provider:any}|null} persistence_
  */
 exports.setPersistence = persistence_ => {
   persistence = persistence_
 }
+
+/**
+ * @return {null|{bindState: function(string,WSSharedDoc):void,
+  * writeState:function(string,WSSharedDoc):Promise<any>}|null} used persistence layer
+  */
+exports.getPersistence = () => persistence
 
 /**
  * @type {Map<string,WSSharedDoc>}
@@ -148,33 +138,23 @@ class WSSharedDoc extends Y.Doc {
 }
 
 /**
- * @param {string} docName - the name of the Y.Doc to find or initialize
- * @param {boolean} gc - whether to allow gc on the doc (applies only when created)
- */
-function getOrInitDoc(docName, gc = true) {
-  // get doc, create if it does not exist yet
-  return map.setIfUndefined(docs, docName, () => {
-    const doc = new WSSharedDoc(docName)
-    doc.gc = gc
-    if (persistence !== null) {
-      persistence.bindState(docName, doc)
-    }
-    docs.set(docName, doc)
-    return doc
-  })
-}
-
-/**
  * Gets a Y.Doc by name, whether in memory or on disk
- * 
- * @param {string} docName - the name of the Y.Doc to find or create
+ *
+ * @param {string} docname - the name of the Y.Doc to find or create
+ * @param {boolean} gc - whether to allow gc on the doc (applies only when created)
+ * @return {WSSharedDoc}
  */
-async function getOrCreateDoc(docName, gc = true) {
-  const ydoc = getOrInitDoc(docName, gc)
-  await mutualSync(docName, ydoc)
-  return ydoc
-}
-exports.getOrCreateDoc = getOrCreateDoc
+const getYDoc = (docname, gc = true) => map.setIfUndefined(docs, docname, () => {
+  const doc = new WSSharedDoc(docname)
+  doc.gc = gc
+  if (persistence !== null) {
+    persistence.bindState(docname, doc)
+  }
+  docs.set(docname, doc)
+  return doc
+})
+
+exports.getYDoc = getYDoc
 
 /**
  * @param {any} conn
@@ -242,7 +222,6 @@ const send = (doc, conn, m) => {
 
 const pingTimeout = 30000
 
-
 /**
  * @param {any} conn
  * @param {any} req
@@ -251,7 +230,7 @@ const pingTimeout = 30000
 exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
   // get doc, initialize if it does not exist yet
-  const doc = getOrInitDoc(docName, gc)
+  const doc = getYDoc(docName, gc)
   doc.conns.set(conn, new Set())
   // listen and reply to events
   conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
