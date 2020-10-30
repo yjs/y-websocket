@@ -12,8 +12,8 @@ const debounce = require('lodash.debounce')
 const callbackHandler = require('./callback.js').callbackHandler
 const isCallbackSet = require('./callback.js').isCallbackSet
 
-const CALLBACK_DEBOUNCE_WAIT = process.env.CALLBACK_DEBOUNCE_WAIT || 2000
-const CALLBACK_DEBOUNCE_MAXWAIT = process.env.CALLBACK_DEBOUNCE_MAXWAIT || 10000
+const CALLBACK_DEBOUNCE_WAIT = parseInt(process.env.CALLBACK_DEBOUNCE_WAIT) || 2000
+const CALLBACK_DEBOUNCE_MAXWAIT = parseInt(process.env.CALLBACK_DEBOUNCE_MAXWAIT) || 10000
 
 const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1
@@ -24,7 +24,7 @@ const wsReadyStateClosed = 3 // eslint-disable-line
 const gcEnabled = process.env.GC !== 'false' && process.env.GC !== '0'
 const persistenceDir = process.env.YPERSISTENCE
 /**
- * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise<any>}|null}
+ * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise<any>, provider: any}|null}
  */
 let persistence = null
 if (typeof persistenceDir === 'string') {
@@ -33,6 +33,7 @@ if (typeof persistenceDir === 'string') {
   const LeveldbPersistence = require('y-leveldb').LeveldbPersistence
   const ldb = new LeveldbPersistence(persistenceDir)
   persistence = {
+    provider: ldb,
     bindState: async (docName, ydoc) => {
       const persistedYdoc = await ldb.getYDoc(docName)
       const newUpdates = Y.encodeStateAsUpdate(ydoc)
@@ -48,11 +49,17 @@ if (typeof persistenceDir === 'string') {
 
 /**
  * @param {{bindState: function(string,WSSharedDoc):void,
- * writeState:function(string,WSSharedDoc):Promise<any>}|null} persistence_
+ * writeState:function(string,WSSharedDoc):Promise<any>,provider:any}|null} persistence_
  */
 exports.setPersistence = persistence_ => {
   persistence = persistence_
 }
+
+/**
+ * @return {null|{bindState: function(string,WSSharedDoc):void,
+  * writeState:function(string,WSSharedDoc):Promise<any>}|null} used persistence layer
+  */
+exports.getPersistence = () => persistence
 
 /**
  * @type {Map<string,WSSharedDoc>}
@@ -131,6 +138,25 @@ class WSSharedDoc extends Y.Doc {
 }
 
 /**
+ * Gets a Y.Doc by name, whether in memory or on disk
+ *
+ * @param {string} docname - the name of the Y.Doc to find or create
+ * @param {boolean} gc - whether to allow gc on the doc (applies only when created)
+ * @return {WSSharedDoc}
+ */
+const getYDoc = (docname, gc = true) => map.setIfUndefined(docs, docname, () => {
+  const doc = new WSSharedDoc(docname)
+  doc.gc = gc
+  if (persistence !== null) {
+    persistence.bindState(docname, doc)
+  }
+  docs.set(docname, doc)
+  return doc
+})
+
+exports.getYDoc = getYDoc
+
+/**
  * @param {any} conn
  * @param {WSSharedDoc} doc
  * @param {Uint8Array} message
@@ -203,16 +229,8 @@ const pingTimeout = 30000
  */
 exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
-  // get doc, create if it does not exist yet
-  const doc = map.setIfUndefined(docs, docName, () => {
-    const doc = new WSSharedDoc(docName)
-    doc.gc = gc
-    if (persistence !== null) {
-      persistence.bindState(docName, doc)
-    }
-    docs.set(docName, doc)
-    return doc
-  })
+  // get doc, initialize if it does not exist yet
+  const doc = getYDoc(docName, gc)
   doc.conns.set(conn, new Set())
   // listen and reply to events
   conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
