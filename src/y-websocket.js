@@ -85,10 +85,6 @@ const setupWS = provider => {
     provider.wsconnected = false
     provider.synced = false
 
-    provider.emit('status', [{
-      status: 'connecting'
-    }])
-
     websocket.onmessage = event => {
       provider.wsLastMessageReceived = time.getUnixTime()
       const encoder = readMessage(provider, new Uint8Array(event.data), true)
@@ -137,6 +133,10 @@ const setupWS = provider => {
         websocket.send(encoding.toUint8Array(encoderAwarenessState))
       }
     }
+    
+    provider.emit('status', [{
+      status: 'connecting'
+    }])
   }
 }
 
