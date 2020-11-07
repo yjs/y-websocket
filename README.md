@@ -1,5 +1,6 @@
 
-### Websocket Provider
+# y-websocket :tophat:
+> WebSocket Provider for Yjs
 
 The Websocket Provider implements a classical client server model. Clients connect to a single endpoint over Websocket. The server distributes awareness information and document updates among clients.
 
@@ -8,7 +9,9 @@ The Websocket Provider is a solid choice if you want a central source that handl
 * Supports cross-tab communication. When you open the same document in the same browser, changes on the document are exchanged via cross-tab communication ([Broadcast Channel](https://developer.mozilla.org/en-US/docs/Web/API/Broadcast_Channel_API) and [localStorage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) as fallback).
 * Supports exchange of awareness information (e.g. cursors).
 
-##### Client Code:
+## Quick Start
+
+### Client Code:
 
 ```js
 import * as Y from 'yjs'
@@ -22,7 +25,15 @@ wsProvider.on('status', event => {
 })
 ```
 
-##### Start a Websocket Server:
+#### Client Code in Node.js
+
+The WebSocket provider requires a [`WebSocket`](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) object to create connection to a server. You can polyfill WebSocket support in Node.js using the [`ws` package](https://www.npmjs.com/package/ws).
+
+```js
+const wsProvider = new WebsocketProvider('ws://localhost:1234', 'my-roomname', doc, { WebSocketPolyfill: require('ws') })
+```
+
+### Start a Websocket Server:
 
 ```sh
 PORT=1234 npx y-websocket-server
@@ -30,7 +41,7 @@ PORT=1234 npx y-websocket-server
 
 Since npm symlinks the `y-websocket-server` executable from your local `./node_modules/.bin` folder, you can simply run npx. The `PORT` environment variable already defaults to 1234.
 
-**Websocket Server with Persistence**
+#### Websocket Server with Persistence
 
 Persist document updates in a LevelDB database.
 
@@ -40,7 +51,7 @@ See [LevelDB Persistence](https://github.com/yjs/y-leveldb) for more info.
 PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/y-websocket/bin/server.js
 ```
 
-**Websocket Server with HTTP callback**
+#### Websocket Server with HTTP callback
 
 Send a debounced callback to an HTTP server (`POST`) on document update.
 
@@ -57,7 +68,7 @@ CALLBACK_URL=http://localhost:3000/ CALLBACK_OBJECTS='{"prosemirror":"XmlFragmen
 ```
 This sends a debounced callback to `localhost:3000` 2 seconds after receiving an update (default `DEBOUNCE_WAIT`) with the data of an XmlFragment named `"prosemirror"` in the body.
 
-### Scaling
+## Scaling
 
 These are mere suggestions how you could scale your server environment.
 
@@ -65,6 +76,6 @@ These are mere suggestions how you could scale your server environment.
 
 **Option 2:** Sharding with *consistent hashing*. Each document is handled by a unique server. This pattern requires an entity, like etcd, that performs regular health checks and manages servers. Based on the list of available servers (which is managed by etcd) a proxy calculates which server is responsible for each requested document. The disadvantage of this approach is that load distribution may not be fair. Still, this approach may be the preferred solution if you want to store the shared document in a database - e.g. for indexing.
 
-### License
+## License
 
 [The MIT License](./LICENSE) © Kevin Jahns
