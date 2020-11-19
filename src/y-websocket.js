@@ -133,7 +133,7 @@ const setupWS = provider => {
         websocket.send(encoding.toUint8Array(encoderAwarenessState))
       }
     }
-    
+
     provider.emit('status', [{
       status: 'connecting'
     }])
