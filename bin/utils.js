@@ -233,6 +233,13 @@ exports.setupWSConnection = async (conn, req, { docName = req.url.slice(1).split
   // get doc, initialize if it does not exist yet
   const doc = getYDoc(docName, gc)
   doc.conns.set(conn, new Set())
+
+  // await the doc state being updated from persistence, if available, otherwise
+  // we may send sync step 2 too early
+  if (doc.whenSynced) {
+    await doc.whenSynced
+  }
+
   // listen and reply to events
   conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
 
@@ -261,12 +268,6 @@ exports.setupWSConnection = async (conn, req, { docName = req.url.slice(1).split
   conn.on('pong', () => {
     pongReceived = true
   })
-
-  // await the doc state being updated from persistence, if available, otherwise
-  // we may send sync step 2 too early
-  if (doc.whenSynced) {
-    await doc.whenSynced
-  }
 
   // put the following in a variables in a block so the interval handlers don't
   // keep in scope
