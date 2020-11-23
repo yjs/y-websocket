@@ -89,7 +89,7 @@ class WSSharedDoc extends Y.Doc {
   /**
    * @param {string} name
    */
-  constructor(name) {
+  constructor (name) {
     super({ gc: gcEnabled })
     this.name = name
     this.mux = mutex.createMutex()
