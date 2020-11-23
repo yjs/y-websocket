@@ -145,7 +145,7 @@ class WSSharedDoc extends Y.Doc {
  * @return {Promise<WSSharedDoc>}
  */
 const getYDoc = async (docname, gc = true) => {
-  let set = map.get(docname)
+  let set = docs.get(docname)
   if (set !== undefined) {
     return set
   }
