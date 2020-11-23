@@ -89,7 +89,7 @@ class WSSharedDoc extends Y.Doc {
   /**
    * @param {string} name
    */
-  constructor (name) {
+  constructor(name) {
     super({ gc: gcEnabled })
     this.name = name
     this.mux = mutex.createMutex()
@@ -134,6 +134,10 @@ class WSSharedDoc extends Y.Doc {
         { maxWait: CALLBACK_DEBOUNCE_MAXWAIT }
       ))
     }
+
+    if (persistence !== null) {
+      this.whenSynced = persistence.bindState(name, this)
+    }
   }
 }
 
@@ -142,22 +146,14 @@ class WSSharedDoc extends Y.Doc {
  *
  * @param {string} docname - the name of the Y.Doc to find or create
  * @param {boolean} gc - whether to allow gc on the doc (applies only when created)
- * @return {Promise<WSSharedDoc>}
+ * @return {WSSharedDoc}
  */
-const getYDoc = async (docname, gc = true) => {
-  let set = docs.get(docname)
-  if (set !== undefined) {
-    return set
-  }
-
+const getYDoc = (docname, gc = true) => map.setIfUndefined(docs, docname, () => {
   const doc = new WSSharedDoc(docname)
   doc.gc = gc
-  if (persistence !== null) {
-    await persistence.bindState(docname, doc)
-  }
   docs.set(docname, doc)
   return doc
-}
+})
 
 exports.getYDoc = getYDoc
 
@@ -235,7 +231,7 @@ const pingTimeout = 30000
 exports.setupWSConnection = async (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
   // get doc, initialize if it does not exist yet
-  const doc = await getYDoc(docName, gc)
+  const doc = getYDoc(docName, gc)
   doc.conns.set(conn, new Set())
   // listen and reply to events
   conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
@@ -265,8 +261,15 @@ exports.setupWSConnection = async (conn, req, { docName = req.url.slice(1).split
   conn.on('pong', () => {
     pongReceived = true
   })
-  // put the following in a variables in a block so the interval handlers don't keep in in
-  // scope
+
+  // await the doc state being updated from persistence, if available, otherwise
+  // we may send sync step 2 too early
+  if (doc.whenSynced) {
+    await doc.whenSynced
+  }
+
+  // put the following in a variables in a block so the interval handlers don't
+  // keep in scope
   {
     // send sync step 1
     const encoder = encoding.createEncoder()
