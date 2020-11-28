@@ -196,6 +196,7 @@ const closeConn = (doc, conn) => {
     if (doc.conns.size === 0 && persistence !== null) {
       // if persisted, we store state and destroy ydocument
       persistence.writeState(doc.name, doc).then(() => {
+        doc.awareness.destroy()
         doc.destroy()
       })
       docs.delete(doc.name)
