@@ -98,8 +98,8 @@ const setupWS = provider => {
       if (provider.wsconnected) {
         provider.wsconnected = false
         provider.synced = false
-        // update awareness (all users left)
-        awarenessProtocol.removeAwarenessStates(provider.awareness, Array.from(provider.awareness.getStates().keys()), provider)
+        // update awareness (all users except local left)
+        awarenessProtocol.removeAwarenessStates(provider.awareness, Array.from(provider.awareness.getStates().keys()).filter(client => client !== provider.doc.clientID), provider)
         provider.emit('status', [{
           status: 'disconnected'
         }])
