@@ -43,7 +43,7 @@ if (typeof persistenceDir === 'string') {
         ldb.storeUpdate(docName, update)
       })
     },
-    writeState: async (docName, ydoc) => { }
+    writeState: async (docName, ydoc) => {}
   }
 }
 
