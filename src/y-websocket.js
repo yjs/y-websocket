@@ -292,6 +292,7 @@ export class WebsocketProvider extends Observable {
   set synced (state) {
     if (this._synced !== state) {
       this._synced = state
+      this.emit('synced', [state])
       this.emit('sync', [state])
     }
   }

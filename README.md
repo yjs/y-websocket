@@ -33,7 +33,56 @@ The WebSocket provider requires a [`WebSocket`](https://developer.mozilla.org/en
 const wsProvider = new WebsocketProvider('ws://localhost:1234', 'my-roomname', doc, { WebSocketPolyfill: require('ws') })
 ```
 
-### Start a Websocket Server:
+## API
+
+```js
+import { WebsocketProvider } from 'y-websocket'
+```
+
+<dl>
+  <b><code>wsProvider = new WebsocketProvider(serverUrl: string, room: string, ydoc: Y.Doc [, wsOpts: WsOpts])</code></b>
+  <dd>Create a new websocket-provider instance. As long as this provider, or the connected ydoc, is not destroyed, the changes will be synced to other clients via the connected server. Optionally, you may specify a configuration object. The following default values of wsOpts can be overwritten. </dd>
+</dl>
+
+```js
+wsOpts = {
+  // Set this to `false` if you want to connect manually using wsProvider.connect()
+  connect: true,
+  // Specify a query-string that will be url-encoded and attached to the `serverUrl`
+  // I.e. params = { auth: "bearer" } will be transformed to "?auth=bearer"
+  params: {}, // Object<string,string>
+  // You may polyill the Websocket object (https://developer.mozilla.org/en-US/docs/Web/API/WebSocket).
+  // E.g. In nodejs, you could specify WebsocketPolyfill = require('ws')
+  WebsocketPolyfill: Websocket,
+  // Specify an existing Awareness instance - see https://github.com/yjs/y-protocols
+  awareness: new awarenessProtocol.Awareness(ydoc)
+}
+```
+
+<dl>
+  <b><code>wsProvider.wsconnected: boolean</code></b>
+  <dd>True if this instance is currently connected to the server.</dd>
+  <b><code>wsProvider.wsconnecting: boolean</code></b>
+  <dd>True if this instance is currently connecting to the server.</dd>
+  <b><code>wsProvider.shouldConnect: boolean</code></b>
+  <dd>If false, the client will not try to reconnect.</dd>
+  <b><code>wsProvider.bcconnected: boolean</code></b>
+  <dd>True if this instance is currently communicating to other browser-windows via BroadcastChannel.</dd>
+  <b><code>wsProvider.synced: boolean</code></b>
+  <dd>True if this instance is currently connected and synced with the server./dd>
+  <b><code>wsProvider.disconnect()</code></b>
+  <dd>Disconnect from the server and don't try to reconnect.</dd>
+  <b><code>wsProvider.connect()</code></b>
+  <dd>Establish a websocket connection to the websocket-server. Call this if you recently disconnected or if you set wsOpts.connect = false.</dd>
+  <b><code>wsProvider.destroy()</code></b>
+  <dd>Destroy this wsProvider instance. Disconnects from the server and removes all event handlers.</dd>
+  <b><code>wsProvider.on('sync', function(isSynced: boolean))</code></b>
+  <dd>Add an event listener for the sync event that is fired when the client received content from the server.</dd>
+</dl>
+
+## Websocket Server
+
+Start a y-websocket server:
 
 ```sh
 PORT=1234 npx y-websocket-server
@@ -41,7 +90,7 @@ PORT=1234 npx y-websocket-server
 
 Since npm symlinks the `y-websocket-server` executable from your local `./node_modules/.bin` folder, you can simply run npx. The `PORT` environment variable already defaults to 1234.
 
-#### Websocket Server with Persistence
+### Websocket Server with Persistence
 
 Persist document updates in a LevelDB database.
 
@@ -51,14 +100,14 @@ See [LevelDB Persistence](https://github.com/yjs/y-leveldb) for more info.
 PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/y-websocket/bin/server.js
 ```
 
-#### Websocket Server with HTTP callback
+### Websocket Server with HTTP callback
 
 Send a debounced callback to an HTTP server (`POST`) on document update.
 
 Can take the following ENV variables:
 
 * `CALLBACK_URL` : Callback server URL
-* `CALLBACK_DEBOUNCE_WAIT` : Debounce time between callbacks (in ms). Defaults to 2000 ms 
+* `CALLBACK_DEBOUNCE_WAIT` : Debounce time between callbacks (in ms). Defaults to 2000 ms
 * `CALLBACK_DEBOUNCE_MAXWAIT` : Maximum time to wait before callback. Defaults to 10 seconds
 * `CALLBACK_TIMEOUT` : Timeout for the HTTP call. Defaults to 5 seconds
 * `CALLBACK_OBJECTS` : JSON of shared objects to get data (`'{"SHARED_OBJECT_NAME":"SHARED_OBJECT_TYPE}'`)
@@ -67,14 +116,6 @@ Can take the following ENV variables:
 CALLBACK_URL=http://localhost:3000/ CALLBACK_OBJECTS='{"prosemirror":"XmlFragment"}' npm start
 ```
 This sends a debounced callback to `localhost:3000` 2 seconds after receiving an update (default `DEBOUNCE_WAIT`) with the data of an XmlFragment named `"prosemirror"` in the body.
-
-## Scaling
-
-These are mere suggestions how you could scale your server environment.
-
-**Option 1:** Websocket servers communicate with each other via a PubSub server. A room is represented by a PubSub channel. The downside of this approach is that the same shared document may be handled by many servers. But the upside is that this approach is fault tolerant, does not have a single point of failure, and is fit for route balancing.
-
-**Option 2:** Sharding with *consistent hashing*. Each document is handled by a unique server. This pattern requires an entity, like etcd, that performs regular health checks and manages servers. Based on the list of available servers (which is managed by etcd) a proxy calculates which server is responsible for each requested document. The disadvantage of this approach is that load distribution may not be fair. Still, this approach may be the preferred solution if you want to store the shared document in a database - e.g. for indexing.
 
 ## License
 
