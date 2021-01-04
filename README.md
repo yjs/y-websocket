@@ -85,10 +85,10 @@ wsOpts = {
 Start a y-websocket server:
 
 ```sh
-PORT=1234 npx y-websocket-server
+HOST=localhost PORT=1234 npx y-websocket-server
 ```
 
-Since npm symlinks the `y-websocket-server` executable from your local `./node_modules/.bin` folder, you can simply run npx. The `PORT` environment variable already defaults to 1234.
+Since npm symlinks the `y-websocket-server` executable from your local `./node_modules/.bin` folder, you can simply run npx. The `PORT` environment variable already defaults to 1234, and `HOST` defaults to `localhost`.
 
 ### Websocket Server with Persistence
 
@@ -97,7 +97,7 @@ Persist document updates in a LevelDB database.
 See [LevelDB Persistence](https://github.com/yjs/y-leveldb) for more info.
 
 ```sh
-PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/y-websocket/bin/server.js
+HOST=localhost PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/y-websocket/bin/server.js
 ```
 
 ### Websocket Server with HTTP callback
