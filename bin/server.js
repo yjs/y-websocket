@@ -8,6 +8,7 @@ const http = require('http')
 const wss = new WebSocket.Server({ noServer: true })
 const setupWSConnection = require('./utils.js').setupWSConnection
 
+const host = process.env.HOST || 'localhost'
 const port = process.env.PORT || 1234
 
 const server = http.createServer((request, response) => {
@@ -28,6 +29,6 @@ server.on('upgrade', (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, handleAuth)
 })
 
-server.listen(port)
+server.listen({host, port})
 
-console.log('running on port', port)
+console.log(`running at '${host}' on port ${port}`)
