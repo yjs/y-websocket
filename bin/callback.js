@@ -46,7 +46,7 @@ const callbackRequest = (url, timeout, data) => {
       'Content-Length': data.length
     }
   }
-  var req = http.request(options)
+  const req = http.request(options)
   req.on('timeout', () => {
     console.warn('Callback request timed out.')
     req.abort()
