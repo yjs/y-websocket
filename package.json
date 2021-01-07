@@ -4,7 +4,7 @@
   "description": "Websockets provider for Yjs",
   "main": "./dist/y-websocket.cjs",
   "module": "./src/y-websocket.js",
-  "types": "./dist/src/y-websocket.d.ts",
+  "types": "./src/y-websocket.d.ts",
   "sideEffects": false,
   "funding": {
     "type": "GitHub Sponsors ❤",
@@ -15,7 +15,7 @@
     "dist": "rm -rf dist && rollup -c && tsc",
     "lint": "standard && tsc",
     "test": "npm run lint",
-    "preversion": "npm run lint && npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
+    "preversion": "npm run lint && npm run dist && test -e src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
   },
   "bin": {
     "y-websocket-server": "./bin/server.js"

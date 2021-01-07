@@ -1,3 +1,4 @@
+// @ts-nocheck
 const Y = require('yjs')
 const syncProtocol = require('y-protocols/dist/sync.cjs')
 const awarenessProtocol = require('y-protocols/dist/awareness.cjs')
@@ -223,9 +224,11 @@ const send = (doc, conn, m) => {
 const pingTimeout = 30000
 
 /**
- * @param {any} conn
- * @param {any} req
- * @param {any} opts
+ * @param {WebSocket} conn
+ * @param {import('http').IncomingMessage} req
+ * @param {object} [opts]
+ * @param {string} [opts.docName]
+ * @param {boolean} [opts.gc]
  */
 exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
