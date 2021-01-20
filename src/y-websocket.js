@@ -92,7 +92,7 @@ const setupWS = provider => {
         websocket.send(encoding.toUint8Array(encoder))
       }
     }
-    websocket.onclose = () => {
+    websocket.onclose = event => {
       provider.ws = null
       provider.wsconnecting = false
       if (provider.wsconnected) {
@@ -101,7 +101,8 @@ const setupWS = provider => {
         // update awareness (all users except local left)
         awarenessProtocol.removeAwarenessStates(provider.awareness, Array.from(provider.awareness.getStates().keys()).filter(client => client !== provider.doc.clientID), provider)
         provider.emit('status', [{
-          status: 'disconnected'
+          status: 'disconnected',
+          wsEvent: event
         }])
       } else {
         provider.wsUnsuccessfulReconnects++
@@ -112,13 +113,14 @@ const setupWS = provider => {
       // timeout at the beginning (log(1) = 0)
       setTimeout(setupWS, math.min(math.log10(provider.wsUnsuccessfulReconnects + 1) * reconnectTimeoutBase, maxReconnectTimeout), provider)
     }
-    websocket.onopen = () => {
+    websocket.onopen = event => {
       provider.wsLastMessageReceived = time.getUnixTime()
       provider.wsconnecting = false
       provider.wsconnected = true
       provider.wsUnsuccessfulReconnects = 0
       provider.emit('status', [{
-        status: 'connected'
+        status: 'connected',
+        wsEvent: event
       }])
       // always send sync step 1 when connected
       const encoder = encoding.createEncoder()
@@ -132,6 +134,12 @@ const setupWS = provider => {
         encoding.writeVarUint8Array(encoderAwarenessState, awarenessProtocol.encodeAwarenessUpdate(provider.awareness, [provider.doc.clientID]))
         websocket.send(encoding.toUint8Array(encoderAwarenessState))
       }
+    }
+    websocket.onerror = event => {
+      provider.emit('status', [{
+        status: 'error',
+        wsEvent: event
+      }])
     }
 
     provider.emit('status', [{
