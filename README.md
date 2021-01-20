@@ -55,7 +55,9 @@ wsOpts = {
   // E.g. In nodejs, you could specify WebsocketPolyfill = require('ws')
   WebsocketPolyfill: Websocket,
   // Specify an existing Awareness instance - see https://github.com/yjs/y-protocols
-  awareness: new awarenessProtocol.Awareness(ydoc)
+  awareness: new awarenessProtocol.Awareness(ydoc),
+  // Takes number of attempts to reconnect - return true/false to continue trying
+  reconnectPredicate: attempts => attempts < 5
 }
 ```
 

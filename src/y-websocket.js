@@ -111,7 +111,11 @@ const setupWS = provider => {
       // log10(wsUnsuccessfulReconnects).
       // The idea is to increase reconnect timeout slowly and have no reconnect
       // timeout at the beginning (log(1) = 0)
-      setTimeout(setupWS, math.min(math.log10(provider.wsUnsuccessfulReconnects + 1) * reconnectTimeoutBase, maxReconnectTimeout), provider)
+      setTimeout(() => {
+        if (provider.reconnectPredicate(provider.wsUnsuccessfulReconnects)) {
+          setupWS(provider)
+        }
+      }, math.min(math.log10(provider.wsUnsuccessfulReconnects + 1) * reconnectTimeoutBase, maxReconnectTimeout))
     }
     websocket.onopen = event => {
       provider.wsLastMessageReceived = time.getUnixTime()
@@ -165,6 +169,12 @@ const broadcastMessage = (provider, buf) => {
 }
 
 /**
+ * @callback reconnectPredicate
+ * @param {number} unsuccessfulAttempts
+ * @returns {boolean}
+ */
+
+/**
  * Websocket Provider for Yjs. Creates a websocket connection to sync the shared document.
  * The document name is attached to the provided url. I.e. the following example
  * creates a websocket connection to http://localhost:1234/my-document-name
@@ -188,8 +198,9 @@ export class WebsocketProvider extends Observable {
    * @param {Object<string,string>} [opts.params]
    * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
+   * @param {reconnectPredicate} [opts.reconnectPredicate] Takes number of attempts to reconnect - return true/false to continue trying
    */
-  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1 } = {}) {
+  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1, reconnectPredicate } = {}) {
     super()
     // ensure that url is always ends with /
     while (serverUrl[serverUrl.length - 1] === '/') {
@@ -206,6 +217,7 @@ export class WebsocketProvider extends Observable {
     this.wsconnecting = false
     this.bcconnected = false
     this.wsUnsuccessfulReconnects = 0
+    this.reconnectPredicate = reconnectPredicate || (() => true)
     this.mux = mutex.createMutex()
     /**
      * @type {boolean}
