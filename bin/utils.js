@@ -43,7 +43,7 @@ if (typeof persistenceDir === 'string') {
         ldb.storeUpdate(docName, update)
       })
     },
-    writeState: async (docName, ydoc) => {}
+    writeState: async (docName, ydoc) => { }
   }
 }
 
@@ -108,6 +108,10 @@ class WSSharedDoc extends Y.Doc {
      */
     this.whenSynced = void 0
     /**
+     * @type {boolean}
+     */
+    this.isSynced = false
+    /**
      * @param {{ added: Array<number>, updated: Array<number>, removed: Array<number> }} changes
      * @param {Object | null} conn Origin is the connection that made the change
      */
@@ -141,6 +145,7 @@ class WSSharedDoc extends Y.Doc {
 
     if (persistence !== null) {
       this.whenSynced = persistence.bindState(name, this)
+        .then(() => { this.isSynced = true })
     }
   }
 }
@@ -203,11 +208,16 @@ const closeConn = (doc, conn) => {
     const controlledIds = doc.conns.get(conn)
     doc.conns.delete(conn)
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
+
     if (doc.conns.size === 0 && persistence !== null) {
-      // if persisted, we store state and destroy ydocument
-      persistence.writeState(doc.name, doc).then(() => {
-        doc.destroy()
-      })
+      if (doc.isSynced) {
+        // if persisted and the state has finished loading from the database,
+        // we write the state back to persisted storage
+        persistence.writeState(doc.name, doc).then(() => {
+          doc.destroy()
+        })
+      }
+
       docs.delete(doc.name)
     }
   }
