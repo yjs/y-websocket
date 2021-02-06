@@ -226,11 +226,11 @@ export class WebsocketProvider extends Observable {
     this.shouldConnect = connect
 
     /**
-     * @type {NodeJS.Timeout | number}
+     * @type {number}
      */
     this._resyncInterval = 0
     if (resyncInterval > 0) {
-      this._resyncInterval = setInterval(() => {
+      this._resyncInterval = /** @type {any} */ (setInterval(() => {
         if (this.ws) {
           // resend sync step 1
           const encoder = encoding.createEncoder()
@@ -238,7 +238,7 @@ export class WebsocketProvider extends Observable {
           syncProtocol.writeSyncStep1(encoder, doc)
           this.ws.send(encoding.toUint8Array(encoder))
         }
-      }, resyncInterval)
+      }, resyncInterval))
     }
 
     /**
@@ -281,13 +281,13 @@ export class WebsocketProvider extends Observable {
       awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload')
     })
     awareness.on('update', this._awarenessUpdateHandler)
-    this._checkInterval = setInterval(() => {
+    this._checkInterval = /** @type {any} */ (setInterval(() => {
       if (this.wsconnected && messageReconnectTimeout < time.getUnixTime() - this.wsLastMessageReceived) {
         // no message received in a long time - not even your own awareness
         // updates (which are updated every 15 seconds)
         /** @type {WebSocket} */ (this.ws).close()
       }
-    }, messageReconnectTimeout / 10)
+    }, messageReconnectTimeout / 10))
     if (connect) {
       this.connect()
     }
@@ -310,7 +310,7 @@ export class WebsocketProvider extends Observable {
 
   destroy () {
     if (this._resyncInterval !== 0) {
-      clearInterval(/** @type {NodeJS.Timeout} */ (this._resyncInterval))
+      clearInterval(this._resyncInterval)
     }
     clearInterval(this._checkInterval)
     this.disconnect()
