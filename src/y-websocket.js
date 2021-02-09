@@ -97,7 +97,11 @@ const setupWS = provider => {
 
     websocket.onmessage = event => {
       provider.wsLastMessageReceived = time.getUnixTime()
-      const encoder = readMessage(provider, new Uint8Array(event.data), true)
+      let eventData = event.data
+      if (provider.messagePreProcess && typeof provider.messagePreProcess === 'function') {
+          eventData = provider.messagePreProcess(eventData)
+      }
+      const encoder = readMessage(provider, new Uint8Array(eventData), true)
       if (encoding.length(encoder) > 1) {
         websocket.send(encoding.toUint8Array(encoder))
       }
@@ -190,8 +194,16 @@ export class WebsocketProvider extends Observable {
    * @param {Object<string,string>} [opts.params]
    * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
+   * @param {any} [opts.messagePreProcess] Optional pre-processing on incomeing messages
    */
-  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1 } = {}) {
+  constructor (serverUrl, roomname, doc, {
+    connect = true,
+    awareness = new awarenessProtocol.Awareness(doc),
+    params = {},
+    WebSocketPolyfill = WebSocket,
+    resyncInterval = -1,
+    messagePreProcess = (message) => {message}
+  } = {}) {
     super()
     // ensure that url is always ends with /
     while (serverUrl[serverUrl.length - 1] === '/') {
@@ -210,6 +222,7 @@ export class WebsocketProvider extends Observable {
     this.wsUnsuccessfulReconnects = 0
     this.messageHandlers = messageHandlers.slice()
     this.mux = mutex.createMutex()
+    this.messagePreProcess = messagePreProcess
     /**
      * @type {boolean}
      */
