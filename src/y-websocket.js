@@ -97,11 +97,11 @@ const setupWS = provider => {
 
     websocket.onmessage = event => {
       provider.wsLastMessageReceived = time.getUnixTime()
-      let eventData = event.data
+      let _event = event
       if (provider.messagePreProcess && typeof provider.messagePreProcess === 'function') {
-          eventData = provider.messagePreProcess(eventData)
+        provider.messagePreProcess(_event)
       }
-      const encoder = readMessage(provider, new Uint8Array(eventData), true)
+      const encoder = readMessage(provider, _event.data, true)
       if (encoding.length(encoder) > 1) {
         websocket.send(encoding.toUint8Array(encoder))
       }
@@ -209,7 +209,7 @@ export class WebsocketProvider extends Observable {
     params = {},
     WebSocketPolyfill = WebSocket,
     resyncInterval = -1,
-    messagePreProcess = (message) => {message}
+    messagePreProcess = event => new Uint8Array(event.data)
   } = {}) {
     super()
     // ensure that url is always ends with /
