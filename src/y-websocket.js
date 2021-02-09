@@ -97,7 +97,9 @@ const setupWS = provider => {
 
     websocket.onmessage = event => {
       provider.wsLastMessageReceived = time.getUnixTime()
-      const encoder = readMessage(provider, new Uint8Array(event.data), true)
+      let _event = event
+      provider.eventPreProcess(_event)
+      const encoder = readMessage(provider, _event.data, true)
       if (encoding.length(encoder) > 1) {
         websocket.send(encoding.toUint8Array(encoder))
       }
@@ -167,6 +169,16 @@ const broadcastMessage = (provider, buf) => {
 }
 
 /**
+ * @function
+ * @param {object} event
+ * @return {object} 
+ */
+const eventPreProcess = (event) => {
+  event.data = new Uint8Array(event.data)
+  return event
+}
+
+/**
  * Websocket Provider for Yjs. Creates a websocket connection to sync the shared document.
  * The document name is attached to the provided url. I.e. the following example
  * creates a websocket connection to http://localhost:1234/my-document-name
@@ -190,8 +202,16 @@ export class WebsocketProvider extends Observable {
    * @param {Object<string,string>} [opts.params]
    * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
+   * @param {eventPreProcess} [opts.customEventPreProcess] Optional pre-processing on incomeing messages
    */
-  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1 } = {}) {
+  constructor (serverUrl, roomname, doc, {
+    connect = true,
+    awareness = new awarenessProtocol.Awareness(doc),
+    params = {},
+    WebSocketPolyfill = WebSocket,
+    resyncInterval = -1,
+    customEventPreProcess = eventPreProcess
+  } = {}) {
     super()
     // ensure that url is always ends with /
     while (serverUrl[serverUrl.length - 1] === '/') {
@@ -210,6 +230,7 @@ export class WebsocketProvider extends Observable {
     this.wsUnsuccessfulReconnects = 0
     this.messageHandlers = messageHandlers.slice()
     this.mux = mutex.createMutex()
+    this.eventPreProcess = customEventPreProcess || eventPreProcess
     /**
      * @type {boolean}
      */
