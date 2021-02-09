@@ -171,6 +171,13 @@ const broadcastMessage = (provider, buf) => {
 }
 
 /**
+ * @function messagePreProcess
+ * @param {object} eventData
+ * @return {ArrayBuffer} 
+ */
+const messagePreProcess = (eventData) => {return eventData}
+
+/**
  * Websocket Provider for Yjs. Creates a websocket connection to sync the shared document.
  * The document name is attached to the provided url. I.e. the following example
  * creates a websocket connection to http://localhost:1234/my-document-name
@@ -194,7 +201,7 @@ export class WebsocketProvider extends Observable {
    * @param {Object<string,string>} [opts.params]
    * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
-   * @param {any} [opts.messagePreProcess] Optional pre-processing on incomeing messages
+   * @param {messagePreProcess} [opts.messagePreProcess] Optional pre-processing on incomeing messages
    */
   constructor (serverUrl, roomname, doc, {
     connect = true,
