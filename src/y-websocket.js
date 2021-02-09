@@ -98,9 +98,7 @@ const setupWS = provider => {
     websocket.onmessage = event => {
       provider.wsLastMessageReceived = time.getUnixTime()
       let _event = event
-      if (provider.messagePreProcess && typeof provider.messagePreProcess === 'function') {
-        provider.messagePreProcess(_event)
-      }
+      provider.eventPreProcess(_event)
       const encoder = readMessage(provider, _event.data, true)
       if (encoding.length(encoder) > 1) {
         websocket.send(encoding.toUint8Array(encoder))
@@ -171,11 +169,14 @@ const broadcastMessage = (provider, buf) => {
 }
 
 /**
- * @function messagePreProcess
- * @param {object} eventData
- * @return {ArrayBuffer} 
+ * @function
+ * @param {object} event
+ * @return {object} 
  */
-const messagePreProcess = (eventData) => {return eventData}
+const eventPreProcess = (event) => {
+  event.data = new Uint8Array(event.data)
+  return event
+}
 
 /**
  * Websocket Provider for Yjs. Creates a websocket connection to sync the shared document.
@@ -201,7 +202,7 @@ export class WebsocketProvider extends Observable {
    * @param {Object<string,string>} [opts.params]
    * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
-   * @param {messagePreProcess} [opts.messagePreProcess] Optional pre-processing on incomeing messages
+   * @param {eventPreProcess} [opts.customEventPreProcess] Optional pre-processing on incomeing messages
    */
   constructor (serverUrl, roomname, doc, {
     connect = true,
@@ -209,7 +210,7 @@ export class WebsocketProvider extends Observable {
     params = {},
     WebSocketPolyfill = WebSocket,
     resyncInterval = -1,
-    messagePreProcess = event => new Uint8Array(event.data)
+    customEventPreProcess = eventPreProcess
   } = {}) {
     super()
     // ensure that url is always ends with /
@@ -229,7 +230,7 @@ export class WebsocketProvider extends Observable {
     this.wsUnsuccessfulReconnects = 0
     this.messageHandlers = messageHandlers.slice()
     this.mux = mutex.createMutex()
-    this.messagePreProcess = messagePreProcess
+    this.eventPreProcess = customEventPreProcess || eventPreProcess
     /**
      * @type {boolean}
      */
