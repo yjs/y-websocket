@@ -156,8 +156,7 @@ const setupWS = provider => {
  */
 const broadcastMessage = (provider, buf) => {
   if (provider.wsconnected) {
-    // @ts-ignore We know that wsconnected = true
-    provider.ws.send(buf)
+    /** @type {WebSocket} */ (provider.ws).send(buf)
   }
   if (provider.bcconnected) {
     provider.mux(() => {
@@ -258,7 +257,7 @@ export class WebsocketProvider extends Observable {
      * @param {any} origin
      */
     this._updateHandler = (update, origin) => {
-      if (origin !== this || origin === null) {
+      if (origin !== this) {
         const encoder = encoding.createEncoder()
         encoding.writeVarUint(encoder, messageSync)
         syncProtocol.writeUpdate(encoder, update)
