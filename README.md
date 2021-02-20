@@ -11,6 +11,22 @@ The Websocket Provider is a solid choice if you want a central source that handl
 
 ## Quick Start
 
+### Install dependencies
+
+```sh
+npm i y-websocket
+```
+
+### Start a y-websocket server
+
+This repository implements a basic server that you can adopt to your specific use-case. [(source code)](./bin/)
+
+Start a y-websocket server:
+
+```sh
+HOST=localhost PORT=1234 npx y-websocket-server
+```
+
 ### Client Code:
 
 ```js
