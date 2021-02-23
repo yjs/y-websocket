@@ -276,9 +276,18 @@ export class WebsocketProvider extends Observable {
       encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients))
       broadcastMessage(this, encoding.toUint8Array(encoder))
     }
-    window.addEventListener('beforeunload', () => {
-      awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload')
-    })
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', () => {
+        awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload');
+      });
+    }
+    else if (typeof process !== 'undefined') {
+      process.on('exit', () => {
+          awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload');
+      });
+    }
+    
     awareness.on('update', this._awarenessUpdateHandler)
     this._checkInterval = /** @type {any} */ (setInterval(() => {
       if (this.wsconnected && messageReconnectTimeout < time.getUnixTime() - this.wsLastMessageReceived) {
