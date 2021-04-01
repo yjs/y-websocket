@@ -102,7 +102,7 @@ const setupWS = provider => {
         websocket.send(encoding.toUint8Array(encoder))
       }
     }
-    websocket.onclose = () => {
+    websocket.onclose = event => {
       provider.ws = null
       provider.wsconnecting = false
       if (provider.wsconnected) {
@@ -115,6 +115,16 @@ const setupWS = provider => {
         }])
       } else {
         provider.wsUnsuccessfulReconnects++
+      }
+
+
+      if (provider._maxReconnectRetryCount > 0 && provider.wsUnsuccessfulReconnects > provider._maxReconnectRetryCount) {
+        provider.shouldConnect = false;
+        provider.wsUnsuccessfulReconnects = 0;
+        provider.emit('status', [{
+          status: 'connection-error',
+          wsEvent: event
+        }])
       }
       // Start with no reconnect timeout and increase timeout by
       // log10(wsUnsuccessfulReconnects).
@@ -187,10 +197,11 @@ export class WebsocketProvider extends Observable {
    * @param {boolean} [opts.connect]
    * @param {awarenessProtocol.Awareness} [opts.awareness]
    * @param {Object<string,string>} [opts.params]
-   * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
+   * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optional provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
+   * @param {number} [opts.maxReconnectRetryCount] The maximum number of retries to reconnect.
    */
-  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1 } = {}) {
+  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1, maxReconnectRetryCount = -1 } = {}) {
     super()
     // ensure that url is always ends with /
     while (serverUrl[serverUrl.length - 1] === '/') {
@@ -239,6 +250,11 @@ export class WebsocketProvider extends Observable {
         }
       }, resyncInterval))
     }
+
+    /**
+     * @type {number}
+     */
+    this._maxReconnectRetryCount = maxReconnectRetryCount;
 
     /**
      * @param {ArrayBuffer} data
