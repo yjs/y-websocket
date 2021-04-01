@@ -4,14 +4,14 @@ const CALLBACK_URL = process.env.CALLBACK_URL ? new URL(process.env.CALLBACK_URL
 const CALLBACK_TIMEOUT = process.env.CALLBACK_TIMEOUT || 5000
 const CALLBACK_OBJECTS = process.env.CALLBACK_OBJECTS ? JSON.parse(process.env.CALLBACK_OBJECTS) : {}
 
-exports.isCallbackSet = !!CALLBACK_URL
+exports.isDefaultCallbackSet = !!CALLBACK_URL
 
 /**
  * @param {Uint8Array} update
  * @param {any} origin
  * @param {WSSharedDoc} doc
  */
-exports.callbackHandler = (update, origin, doc) => {
+exports.defaultCallbackHandler = (update, origin, doc) => {
   const room = doc.name
   const dataToSend = {
     room: room,
@@ -58,6 +58,7 @@ const callbackRequest = (url, timeout, data) => {
   req.write(data)
   req.end()
 }
+exports.callbackRequest = callbackRequest
 
 /**
  * @param {string} objName
@@ -74,3 +75,4 @@ const getContent = (objName, objType, doc) => {
     default : return {}
   }
 }
+exports.getContent = getContent

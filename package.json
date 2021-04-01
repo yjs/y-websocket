@@ -1,6 +1,6 @@
 {
   "name": "y-websocket",
-  "version": "1.3.18",
+  "version": "1.3.18-canadaduane",
   "description": "Websockets provider for Yjs",
   "main": "./dist/y-websocket.cjs",
   "module": "./src/y-websocket.js",
@@ -63,7 +63,7 @@
     "rollup-cli": "^1.0.9",
     "standard": "^12.0.1",
     "typescript": "^3.9.9",
-    "yjs": "^13.5.0"
+    "yjs": "^13.5.23"
   },
   "peerDependencies": {
     "yjs": "^13.5.6"
