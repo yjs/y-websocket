@@ -9,8 +9,8 @@ const map = require('lib0/dist/map.cjs')
 
 const debounce = require('lodash.debounce')
 
-const callbackHandler = require('./callback.js').callbackHandler
-const isCallbackSet = require('./callback.js').isCallbackSet
+const defaultCallbackHandler = require('./callback.js').defaultCallbackHandler
+const isDefaultCallbackSet = require('./callback.js').isDefaultCallbackSet
 
 const CALLBACK_DEBOUNCE_WAIT = parseInt(process.env.CALLBACK_DEBOUNCE_WAIT) || 2000
 const CALLBACK_DEBOUNCE_MAXWAIT = parseInt(process.env.CALLBACK_DEBOUNCE_MAXWAIT) || 10000
@@ -89,7 +89,9 @@ class WSSharedDoc extends Y.Doc {
   /**
    * @param {string} name
    */
-  constructor (name) {
+  constructor (name, {
+    callbackHandler = isDefaultCallbackSet ? defaultCallbackHandler : null
+  }) {
     super({ gc: gcEnabled })
     this.name = name
     this.mux = mutex.createMutex()
@@ -127,7 +129,7 @@ class WSSharedDoc extends Y.Doc {
     }
     this.awareness.on('update', awarenessChangeHandler)
     this.on('update', updateHandler)
-    if (isCallbackSet) {
+    if (callbackHandler) {
       this.on('update', debounce(
         callbackHandler,
         CALLBACK_DEBOUNCE_WAIT,
@@ -144,8 +146,8 @@ class WSSharedDoc extends Y.Doc {
  * @param {boolean} gc - whether to allow gc on the doc (applies only when created)
  * @return {WSSharedDoc}
  */
-const getYDoc = (docname, gc = true) => map.setIfUndefined(docs, docname, () => {
-  const doc = new WSSharedDoc(docname)
+const getYDoc = (docname, { gc = true, callbackHandler } = {}) => map.setIfUndefined(docs, docname, () => {
+  const doc = new WSSharedDoc(docname, { callbackHandler })
   doc.gc = gc
   if (persistence !== null) {
     persistence.bindState(docname, doc)
@@ -227,10 +229,18 @@ const pingTimeout = 30000
  * @param {any} req
  * @param {any} opts
  */
-exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
+exports.setupWSConnection = (
+  conn,
+  req,
+  {
+    docName = req.url.slice(1).split("?")[0],
+    gc = true,
+    callbackHandler
+  } = {}
+) => {
   conn.binaryType = 'arraybuffer'
   // get doc, initialize if it does not exist yet
-  const doc = getYDoc(docName, gc)
+  const doc = getYDoc(docName, { gc, callbackHandler })
   doc.conns.set(conn, new Set())
   // listen and reply to events
   conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
