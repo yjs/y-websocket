@@ -3,6 +3,7 @@ const http = require('http')
 const CALLBACK_URL = process.env.CALLBACK_URL ? new URL(process.env.CALLBACK_URL) : null
 const CALLBACK_TIMEOUT = process.env.CALLBACK_TIMEOUT || 5000
 const CALLBACK_OBJECTS = process.env.CALLBACK_OBJECTS ? JSON.parse(process.env.CALLBACK_OBJECTS) : {}
+const CALLBACK_SIZES = process.env.CALLBACK_SIZES ? JSON.parse(process.env.CALLBACK_SIZES) : {}
 
 exports.isCallbackSet = !!CALLBACK_URL
 
@@ -15,16 +16,28 @@ exports.callbackHandler = (update, origin, doc) => {
   const room = doc.name
   const dataToSend = {
     room: room,
-    data: {}
+    data: {},
+    sizes: {}
   }
-  const sharedObjectList = Object.keys(CALLBACK_OBJECTS)
-  sharedObjectList.forEach(sharedObjectName => {
-    const sharedObjectType = CALLBACK_OBJECTS[sharedObjectName]
-    dataToSend.data[sharedObjectName] = {
-      type: sharedObjectType,
-      content: getContent(sharedObjectName, sharedObjectType, doc).toJSON()
+
+  const objectsKeys = Object.keys(CALLBACK_OBJECTS)
+  objectsKeys.forEach(key => {
+    const sharedType = CALLBACK_OBJECTS[key]
+    dataToSend.data[key] = {
+      type: sharedType,
+      content: getContent(key, sharedType, doc).toJSON()
     }
   })
+
+  const sizesKeys = Object.keys(CALLBACK_SIZES)
+  sizesKeys.forEach(key => {
+    const sharedType = CALLBACK_SIZES[key]
+    dataToSend.sizes[key] = {
+      type: sharedType,
+      size: getSize(key, sharedType, doc)
+    }
+  })
+
   callbackRequest(CALLBACK_URL, CALLBACK_TIMEOUT, dataToSend)
 }
 
@@ -72,5 +85,16 @@ const getContent = (objName, objType, doc) => {
     case 'XmlFragment': return doc.getXmlFragment(objName)
     case 'XmlElement': return doc.getXmlElement(objName)
     default : return {}
+  }
+}
+
+const getSize = (objName, objType, doc) => {
+  switch (objType) {
+    case 'Array': return doc.getArray(objName).length
+    case 'Map': return doc.getMap(objName).size
+    case 'Text': return doc.getText(objName).length
+    case 'XmlFragment': return doc.getXmlFragment(objName).length
+    case 'XmlElement': return doc.getXmlElement(objName).toString().length
+    default : return null
   }
 }
