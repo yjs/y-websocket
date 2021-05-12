@@ -56,7 +56,7 @@
     "typescript": "^3.9.9",
     "yjs": "^13.5.0"
   },
-  "peerDependenies": {
+  "peerDependencies": {
     "yjs": "^13.5.0"
   },
   "optionalDependencies": {
