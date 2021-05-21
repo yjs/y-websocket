@@ -2,6 +2,7 @@
   "name": "y-websocket",
   "version": "1.3.13",
   "description": "Websockets provider for Yjs",
+  "type": "module",
   "main": "./dist/y-websocket.cjs",
   "module": "./src/y-websocket.js",
   "types": "./dist/src/y-websocket.d.ts",
