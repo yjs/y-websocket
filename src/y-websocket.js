@@ -276,11 +276,13 @@ export class WebsocketProvider extends Observable {
       encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients))
       broadcastMessage(this, encoding.toUint8Array(encoder))
     }
+    this._beforeUnloadHandler = () => {
+      awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload')
+    }
     if (typeof window !== 'undefined') {
-      this._beforeUnloadHandler = () => {
-        awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload')
-      };
       window.addEventListener('beforeunload', this._beforeUnloadHandler)
+    } else if (typeof process !== 'undefined') {
+      process.on('exit', () => this._beforeUnloadHandler)
     }
     awareness.on('update', this._awarenessUpdateHandler)
     this._checkInterval = /** @type {any} */ (setInterval(() => {
@@ -316,8 +318,10 @@ export class WebsocketProvider extends Observable {
     }
     clearInterval(this._checkInterval)
     this.disconnect()
-    if (this._beforeUnloadHandler) {
+    if (typeof window !== 'undefined') {
       window.removeEventListener('beforeunload', this._beforeUnloadHandler)
+    } else if (typeof process !== 'undefined') {
+      process.off('exit', () => this._beforeUnloadHandler)
     }
     this.awareness.off('update', this._awarenessUpdateHandler)
     this.doc.off('update', this._updateHandler)
