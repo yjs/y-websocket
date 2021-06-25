@@ -85,7 +85,7 @@ wsOpts = {
   <b><code>wsProvider.bcconnected: boolean</code></b>
   <dd>True if this instance is currently communicating to other browser-windows via BroadcastChannel.</dd>
   <b><code>wsProvider.synced: boolean</code></b>
-  <dd>True if this instance is currently connected and synced with the server./dd>
+  <dd>True if this instance is currently connected and synced with the server.</dd>
   <b><code>wsProvider.disconnect()</code></b>
   <dd>Disconnect from the server and don't try to reconnect.</dd>
   <b><code>wsProvider.connect()</code></b>

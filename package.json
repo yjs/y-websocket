@@ -1,6 +1,6 @@
 {
   "name": "y-websocket",
-  "version": "1.3.11",
+  "version": "1.3.15",
   "description": "Websockets provider for Yjs",
   "main": "./dist/y-websocket.cjs",
   "module": "./src/y-websocket.js",
@@ -25,6 +25,13 @@
     "bin/*",
     "src/*"
   ],
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": "./src/y-websocket.js",
+      "require": "./dist/y-websocket.cjs"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/yjs/y-websocket.git"
@@ -45,9 +52,9 @@
     ]
   },
   "dependencies": {
-    "lib0": "^0.2.35",
+    "lib0": "^0.2.42",
     "lodash.debounce": "^4.0.8",
-    "y-protocols": "^1.0.4"
+    "y-protocols": "^1.0.5"
   },
   "devDependencies": {
     "rollup": "^1.32.1",
@@ -56,8 +63,8 @@
     "typescript": "^3.9.9",
     "yjs": "^13.5.0"
   },
-  "peerDependenies": {
-    "yjs": "^13.5.0"
+  "peerDependencies": {
+    "yjs": "^13.5.6"
   },
   "optionalDependencies": {
     "ws": "^6.2.1",

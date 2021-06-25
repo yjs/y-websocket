@@ -9,17 +9,17 @@ Unlike stated in the LICENSE file, it is not necessary to include the copyright 
 /* eslint-env browser */
 
 import * as Y from 'yjs' // eslint-disable-line
-import * as bc from 'lib0/broadcastchannel.js'
-import * as time from 'lib0/time.js'
-import * as encoding from 'lib0/encoding.js'
-import * as decoding from 'lib0/decoding.js'
-import * as syncProtocol from 'y-protocols/sync.js'
-import * as authProtocol from 'y-protocols/auth.js'
-import * as awarenessProtocol from 'y-protocols/awareness.js'
-import * as mutex from 'lib0/mutex.js'
-import { Observable } from 'lib0/observable.js'
-import * as math from 'lib0/math.js'
-import * as url from 'lib0/url.js'
+import * as bc from 'lib0/broadcastchannel'
+import * as time from 'lib0/time'
+import * as encoding from 'lib0/encoding'
+import * as decoding from 'lib0/decoding'
+import * as syncProtocol from 'y-protocols/sync'
+import * as authProtocol from 'y-protocols/auth'
+import * as awarenessProtocol from 'y-protocols/awareness'
+import * as mutex from 'lib0/mutex'
+import { Observable } from 'lib0/observable'
+import * as math from 'lib0/math'
+import * as url from 'lib0/url'
 
 const messageSync = 0
 const messageQueryAwareness = 3
@@ -276,18 +276,14 @@ export class WebsocketProvider extends Observable {
       encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients))
       broadcastMessage(this, encoding.toUint8Array(encoder))
     }
-
+    this._beforeUnloadHandler = () => {
+      awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload')
+    }
     if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', () => {
-        awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload');
-      });
+      window.addEventListener('beforeunload', this._beforeUnloadHandler)
+    } else if (typeof process !== 'undefined') {
+      process.on('exit', () => this._beforeUnloadHandler)
     }
-    else if (typeof process !== 'undefined') {
-      process.on('exit', () => {
-          awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload');
-      });
-    }
-    
     awareness.on('update', this._awarenessUpdateHandler)
     this._checkInterval = /** @type {any} */ (setInterval(() => {
       if (this.wsconnected && messageReconnectTimeout < time.getUnixTime() - this.wsLastMessageReceived) {
@@ -322,6 +318,11 @@ export class WebsocketProvider extends Observable {
     }
     clearInterval(this._checkInterval)
     this.disconnect()
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', this._beforeUnloadHandler)
+    } else if (typeof process !== 'undefined') {
+      process.off('exit', () => this._beforeUnloadHandler)
+    }
     this.awareness.off('update', this._awarenessUpdateHandler)
     this.doc.off('update', this._updateHandler)
     super.destroy()
