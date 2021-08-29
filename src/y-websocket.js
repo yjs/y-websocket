@@ -191,7 +191,7 @@ export class WebsocketProvider extends Observable {
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {Object<string, string>} [opts.headers] Websocket Headers e.g https://github.com/websockets/ws/issues/1411
    */
-  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1 } = {}, headers) {
+  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1, headers } = {}) {
     super()
     // ensure that url is always ends with /
     while (serverUrl[serverUrl.length - 1] === '/') {
