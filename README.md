@@ -71,7 +71,13 @@ wsOpts = {
   // E.g. In nodejs, you could specify WebsocketPolyfill = require('ws')
   WebsocketPolyfill: Websocket,
   // Specify an existing Awareness instance - see https://github.com/yjs/y-protocols
-  awareness: new awarenessProtocol.Awareness(ydoc)
+  awareness: new awarenessProtocol.Awareness(ydoc),
+  // Specify a transformer for incoming Websocket data, i.e. fromBase64
+  // It should take the data from the WebSocket and output a Uint8Array
+  transformRead: data => Uint8Array,
+  // Specify a transformer for outgoing Websocket data, i.e. toBase64
+  // It should take a Uint8Array and output data to send on the WebSocket
+  transformWrite: Uint8Array => data
 }
 ```
 

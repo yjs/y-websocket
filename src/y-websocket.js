@@ -97,9 +97,10 @@ const setupWS = provider => {
 
     websocket.onmessage = event => {
       provider.wsLastMessageReceived = time.getUnixTime()
-      const encoder = readMessage(provider, new Uint8Array(event.data), true)
+      const data = provider.transformRead(event.data)
+      const encoder = readMessage(provider, data, true)
       if (encoding.length(encoder) > 1) {
-        websocket.send(encoding.toUint8Array(encoder))
+        provider.send(encoder)
       }
     }
     websocket.onclose = () => {
@@ -134,13 +135,13 @@ const setupWS = provider => {
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.writeSyncStep1(encoder, provider.doc)
-      websocket.send(encoding.toUint8Array(encoder))
+      provider.send(encoder)
       // broadcast local awareness state
       if (provider.awareness.getLocalState() !== null) {
         const encoderAwarenessState = encoding.createEncoder()
         encoding.writeVarUint(encoderAwarenessState, messageAwareness)
         encoding.writeVarUint8Array(encoderAwarenessState, awarenessProtocol.encodeAwarenessUpdate(provider.awareness, [provider.doc.clientID]))
-        websocket.send(encoding.toUint8Array(encoderAwarenessState))
+        provider.send(encoderAwarenessState)
       }
     }
 
@@ -151,16 +152,30 @@ const setupWS = provider => {
 }
 
 /**
- * @param {WebsocketProvider} provider
- * @param {ArrayBuffer} buf
+ * @callback transformRead
+ * @param {*} data
+ * @returns {Uint8Array}
  */
-const broadcastMessage = (provider, buf) => {
+const defaultTransformRead = data => new Uint8Array(data)
+
+/**
+ * @callback transformWrite
+ * @param {Uint8Array} data
+ * @returns {*}
+ */
+const defaultTransformWrite = data => data
+
+/**
+ * @param {WebsocketProvider} provider
+ * @param {encoding.Encoder} encoder
+ */
+const broadcastMessage = (provider, encoder) => {
   if (provider.wsconnected) {
-    /** @type {WebSocket} */ (provider.ws).send(buf)
+    provider.send(encoder)
   }
   if (provider.bcconnected) {
     provider.mux(() => {
-      bc.publish(provider.bcChannel, buf)
+      bc.publish(provider.bcChannel, encoding.toUint8Array(encoder))
     })
   }
 }
@@ -187,10 +202,24 @@ export class WebsocketProvider extends Observable {
    * @param {boolean} [opts.connect]
    * @param {awarenessProtocol.Awareness} [opts.awareness]
    * @param {Object<string,string>} [opts.params]
-   * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
+   * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionally provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
+   * @param {transformRead} [opts.transformRead] Optionally provide a transformer to incoming WebSocket data
+   * @param {transformWrite} [opts.transformWrite] Optionally provide a transformer to outgoing WebSocket data
    */
-  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1 } = {}) {
+  constructor (
+    serverUrl,
+    roomname,
+    doc, {
+      connect = true,
+      awareness = new awarenessProtocol.Awareness(doc),
+      params = {},
+      WebSocketPolyfill = WebSocket,
+      resyncInterval = -1,
+      transformRead = defaultTransformRead,
+      transformWrite = defaultTransformWrite
+    } = {}
+  ) {
     super()
     // ensure that url is always ends with /
     while (serverUrl[serverUrl.length - 1] === '/') {
@@ -203,6 +232,8 @@ export class WebsocketProvider extends Observable {
     this.doc = doc
     this._WS = WebSocketPolyfill
     this.awareness = awareness
+    this.transformRead = transformRead
+    this.transformWrite = transformWrite
     this.wsconnected = false
     this.wsconnecting = false
     this.bcconnected = false
@@ -235,7 +266,7 @@ export class WebsocketProvider extends Observable {
           const encoder = encoding.createEncoder()
           encoding.writeVarUint(encoder, messageSync)
           syncProtocol.writeSyncStep1(encoder, doc)
-          this.ws.send(encoding.toUint8Array(encoder))
+          this.send(encoder)
         }
       }, resyncInterval))
     }
@@ -261,7 +292,7 @@ export class WebsocketProvider extends Observable {
         const encoder = encoding.createEncoder()
         encoding.writeVarUint(encoder, messageSync)
         syncProtocol.writeUpdate(encoder, update)
-        broadcastMessage(this, encoding.toUint8Array(encoder))
+        broadcastMessage(this, encoder)
       }
     }
     this.doc.on('update', this._updateHandler)
@@ -274,7 +305,7 @@ export class WebsocketProvider extends Observable {
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageAwareness)
       encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients))
-      broadcastMessage(this, encoding.toUint8Array(encoder))
+      broadcastMessage(this, encoder)
     }
     this._beforeUnloadHandler = () => {
       awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload')
@@ -362,10 +393,21 @@ export class WebsocketProvider extends Observable {
     const encoder = encoding.createEncoder()
     encoding.writeVarUint(encoder, messageAwareness)
     encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(this.awareness, [this.doc.clientID], new Map()))
-    broadcastMessage(this, encoding.toUint8Array(encoder))
+    broadcastMessage(this, encoder)
     if (this.bcconnected) {
       bc.unsubscribe(this.bcChannel, this._bcSubscriber)
       this.bcconnected = false
+    }
+  }
+
+  /**
+   * Sends messages via the WebSocket
+   * @param {encoding.Encoder} encoder
+   */
+  send (encoder) {
+    if (this.ws) {
+      const msg = encoding.toUint8Array(encoder)
+      this.ws.send(this.transformWrite(msg))
     }
   }
 
