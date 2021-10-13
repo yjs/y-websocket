@@ -162,21 +162,26 @@ exports.getYDoc = getYDoc
  * @param {Uint8Array} message
  */
 const messageListener = (conn, doc, message) => {
-  const encoder = encoding.createEncoder()
-  const decoder = decoding.createDecoder(message)
-  const messageType = decoding.readVarUint(decoder)
-  switch (messageType) {
-    case messageSync:
-      encoding.writeVarUint(encoder, messageSync)
-      syncProtocol.readSyncMessage(decoder, encoder, doc, null)
-      if (encoding.length(encoder) > 1) {
-        send(doc, conn, encoding.toUint8Array(encoder))
+  try {
+    const encoder = encoding.createEncoder()
+    const decoder = decoding.createDecoder(message)
+    const messageType = decoding.readVarUint(decoder)
+    switch (messageType) {
+      case messageSync:
+        encoding.writeVarUint(encoder, messageSync)
+        syncProtocol.readSyncMessage(decoder, encoder, doc, null)
+        if (encoding.length(encoder) > 1) {
+          send(doc, conn, encoding.toUint8Array(encoder))
+        }
+        break
+      case messageAwareness: {
+        awarenessProtocol.applyAwarenessUpdate(doc.awareness, decoding.readVarUint8Array(decoder), conn)
+        break
       }
-      break
-    case messageAwareness: {
-      awarenessProtocol.applyAwarenessUpdate(doc.awareness, decoding.readVarUint8Array(decoder), conn)
-      break
     }
+  } catch (err) {
+    console.error(err)
+    doc.emit('error', [err])
   }
 }
 
