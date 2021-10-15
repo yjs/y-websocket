@@ -117,10 +117,9 @@ const setupWS = provider => {
         provider.wsUnsuccessfulReconnects++
       }
 
-
       if (provider._maxReconnectRetryCount > 0 && provider.wsUnsuccessfulReconnects > provider._maxReconnectRetryCount) {
-        provider.shouldConnect = false;
-        provider.wsUnsuccessfulReconnects = 0;
+        provider.shouldConnect = false
+        provider.wsUnsuccessfulReconnects = 0
         provider.emit('status', [{
           status: 'connection-error',
           wsEvent: event
@@ -200,8 +199,9 @@ export class WebsocketProvider extends Observable {
    * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optional provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {number} [opts.maxReconnectRetryCount] The maximum number of retries to reconnect.
+   * @param {boolean} [opts.disableBroadcastChannel] Whether to disalbe Broadcast Channel.
    */
-  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1, maxReconnectRetryCount = -1 } = {}) {
+  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1, maxReconnectRetryCount = -1, disableBroadcastChannel = false } = {}) {
     super()
     // ensure that url is always ends with /
     while (serverUrl[serverUrl.length - 1] === '/') {
@@ -254,7 +254,12 @@ export class WebsocketProvider extends Observable {
     /**
      * @type {number}
      */
-    this._maxReconnectRetryCount = maxReconnectRetryCount;
+    this._maxReconnectRetryCount = maxReconnectRetryCount
+
+    /**
+     * @type {boolean}
+     */
+    this._disableBroadcastChannel = disableBroadcastChannel
 
     /**
      * @param {ArrayBuffer} data
@@ -377,7 +382,9 @@ export class WebsocketProvider extends Observable {
 
   disconnect () {
     this.shouldConnect = false
-    this.disconnectBc()
+    if (!this._disableBroadcastChannel) {
+      this.disconnectBc()
+    }
     if (this.ws !== null) {
       this.ws.close()
     }
@@ -387,7 +394,9 @@ export class WebsocketProvider extends Observable {
     this.shouldConnect = true
     if (!this.wsconnected && this.ws === null) {
       setupWS(this)
-      this.connectBc()
+      if (!this._disableBroadcastChannel) {
+        this.connectBc()
+      }
     }
   }
 }
