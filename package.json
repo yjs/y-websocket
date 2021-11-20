@@ -27,6 +27,8 @@
   ],
   "exports": {
     "./package.json": "./package.json",
+    "./bin/utils": "./bin/utils.js",
+    "./bin/callback": "./bin/callback.js",
     ".": {
       "import": "./src/y-websocket.js",
       "require": "./dist/y-websocket.cjs"
