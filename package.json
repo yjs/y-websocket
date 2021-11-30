@@ -2,6 +2,7 @@
   "name": "y-websocket",
   "version": "1.3.17",
   "description": "Websockets provider for Yjs",
+  "type": "module",
   "main": "./dist/y-websocket.cjs",
   "module": "./src/y-websocket.js",
   "types": "./dist/src/y-websocket.d.ts",
@@ -54,22 +55,22 @@
     ]
   },
   "dependencies": {
-    "lib0": "^0.2.42",
+    "lib0": "^0.2.43",
     "lodash.debounce": "^4.0.8",
+    "ws": "^8.3.0",
     "y-protocols": "^1.0.5"
   },
   "devDependencies": {
     "rollup": "^1.32.1",
     "rollup-cli": "^1.0.9",
     "standard": "^12.0.1",
-    "typescript": "^3.9.9",
-    "yjs": "^13.5.0"
+    "typescript": "^3.9.10",
+    "yjs": "^13.5.22"
   },
   "peerDependencies": {
     "yjs": "^13.5.6"
   },
   "optionalDependencies": {
-    "ws": "^6.2.1",
-    "y-leveldb": "^0.1.0"
+    "y-leveldb": "^0.1.1"
   }
 }

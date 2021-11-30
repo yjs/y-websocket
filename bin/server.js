@@ -3,10 +3,11 @@
 /**
  * @type {any}
  */
-const WebSocket = require('ws')
-const http = require('http')
-const wss = new WebSocket.Server({ noServer: true })
-const setupWSConnection = require('./utils.js').setupWSConnection
+import { WebSocketServer } from 'ws'
+import http from 'http'
+import { setupWSConnection } from './utils.js'
+
+const wss = new WebSocketServer({ noServer: true })
 
 const host = process.env.HOST || 'localhost'
 const port = process.env.PORT || 1234
@@ -26,7 +27,7 @@ server.on('upgrade', (request, socket, head) => {
   const handleAuth = ws => {
     wss.emit('connection', ws, request)
   }
-  wss.handleUpgrade(request, socket, head, handleAuth)
+  wss.handleUpgrade(request, /** @type {any} */ (socket), head, handleAuth)
 })
 
 server.listen(port, () => {
