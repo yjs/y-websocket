@@ -8,7 +8,7 @@
       "type": "node",
       "request": "launch",
       "name": "websocket server",
-      "program": "${workspaceFolder}/bin/server.js"
+      "program": "${workspaceFolder}/bin/server.cjs"
     }
   ]
 }
