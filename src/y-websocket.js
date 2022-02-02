@@ -290,6 +290,9 @@ export class WebsocketProvider extends Observable {
         // no message received in a long time - not even your own awareness
         // updates (which are updated every 15 seconds)
         /** @type {WebSocket} */ (this.ws).close()
+
+        // Websocket does not call onclose when the socket is closed manually
+        /** @type {WebSocket} */ (this.ws).onclose()
       }
     }, messageReconnectTimeout / 10))
     if (connect) {
