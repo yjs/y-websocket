@@ -289,10 +289,18 @@ export class WebsocketProvider extends Observable {
       if (this.wsconnected && messageReconnectTimeout < time.getUnixTime() - this.wsLastMessageReceived) {
         // no message received in a long time - not even your own awareness
         // updates (which are updated every 15 seconds)
-        /** @type {WebSocket} */ (this.ws).close()
 
-        // Websocket does not call onclose when the socket is closed manually
-        /** @type {WebSocket} */ (this.ws).onclose()
+        if (!this.ws) {
+          setupWS(this);
+          return;
+        };
+
+        this.ws.close();
+        
+        if (typeof this.ws.onclose === 'function') {
+          // ws.onclose is not called after the websocket is closed manually in Safari
+          this.ws.onclose(new CloseEvent('manual close'));
+        }
       }
     }, messageReconnectTimeout / 10))
     if (connect) {
