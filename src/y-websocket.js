@@ -113,20 +113,23 @@ const setupWS = provider => {
         provider.emit('status', [{
           status: 'disconnected'
         }])
-      } else {
-        provider.wsUnsuccessfulReconnects++
+        clearTimeout(provider.resetUnsuccessfulReconnects)
       }
+
       // Start with no reconnect timeout and increase timeout by
       // log10(wsUnsuccessfulReconnects).
       // The idea is to increase reconnect timeout slowly and have no reconnect
       // timeout at the beginning (log(1) = 0)
+      provider.wsUnsuccessfulReconnects++
       setTimeout(setupWS, math.min(math.log10(provider.wsUnsuccessfulReconnects + 1) * reconnectTimeoutBase, maxReconnectTimeout), provider)
     }
     websocket.onopen = () => {
       provider.wsLastMessageReceived = time.getUnixTime()
       provider.wsconnecting = false
       provider.wsconnected = true
-      provider.wsUnsuccessfulReconnects = 0
+      provider.resetUnsuccessfulReconnects = setTimeout(() => {
+        provider.wsUnsuccessfulReconnects = 0
+      }, 1000)
       provider.emit('status', [{
         status: 'connected'
       }])
@@ -207,6 +210,7 @@ export class WebsocketProvider extends Observable {
     this.wsconnecting = false
     this.bcconnected = false
     this.wsUnsuccessfulReconnects = 0
+    this.resetUnsuccessfulReconnects = undefined
     this.messageHandlers = messageHandlers.slice()
     this.mux = mutex.createMutex()
     /**
