@@ -1,17 +1,20 @@
-const http = require('http')
+import { WSSharedDoc } from './utils.js' // eslint-disable-line
+
+import * as Y from 'yjs'
+import http from 'http'
 
 const CALLBACK_URL = process.env.CALLBACK_URL ? new URL(process.env.CALLBACK_URL) : null
-const CALLBACK_TIMEOUT = process.env.CALLBACK_TIMEOUT || 5000
+const CALLBACK_TIMEOUT = Number.parseInt(process.env.CALLBACK_TIMEOUT || '5000')
 const CALLBACK_OBJECTS = process.env.CALLBACK_OBJECTS ? JSON.parse(process.env.CALLBACK_OBJECTS) : {}
 
-exports.isCallbackSet = !!CALLBACK_URL
+export const isCallbackSet = !!CALLBACK_URL
 
 /**
  * @param {Uint8Array} update
  * @param {any} origin
  * @param {WSSharedDoc} doc
  */
-exports.callbackHandler = (update, origin, doc) => {
+export const callbackHandler = (update, origin, doc) => {
   const room = doc.name
   const dataToSend = {
     room: room,
@@ -70,7 +73,7 @@ const getContent = (objName, objType, doc) => {
     case 'Map': return doc.getMap(objName)
     case 'Text': return doc.getText(objName)
     case 'XmlFragment': return doc.getXmlFragment(objName)
-    case 'XmlElement': return doc.getXmlElement(objName)
+    case 'XmlElement': return doc.get(objName, Y.XmlElement)
     default : return {}
   }
 }
