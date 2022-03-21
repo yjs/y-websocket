@@ -71,7 +71,9 @@ wsOpts = {
   // E.g. In nodejs, you could specify WebsocketPolyfill = require('ws')
   WebsocketPolyfill: Websocket,
   // Specify an existing Awareness instance - see https://github.com/yjs/y-protocols
-  awareness: new awarenessProtocol.Awareness(ydoc)
+  awareness: new awarenessProtocol.Awareness(ydoc),
+  // Specify the maximum amount to wait between reconnects (we use exponential backoff).
+  maxBackoffTime: 2500
 }
 ```
 
@@ -94,6 +96,12 @@ wsOpts = {
   <dd>Destroy this wsProvider instance. Disconnects from the server and removes all event handlers.</dd>
   <b><code>wsProvider.on('sync', function(isSynced: boolean))</code></b>
   <dd>Add an event listener for the sync event that is fired when the client received content from the server.</dd>
+  <b><code>wsProvider.on('status', function({ status: 'disconnected' | 'connecting' | 'connected' }))</code></b>
+  <dd>Receive updates about the current connection status.</dd>
+  <b><code>wsProvider.on('connection-close', function(WSClosedEvent))</code></b>
+  <dd>Fires when the underlying websocket connection is closed. It forwards the websocket event to this event handler.</dd>
+  <b><code>wsProvider.on('connection-error', function(WSErrorEvent))</code></b>
+  <dd>Fires when the underlying websocket connection closes with an error. It forwards the websocket event to this event handler.</dd>
 </dl>
 
 ## Websocket Server
