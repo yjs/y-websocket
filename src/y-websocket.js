@@ -53,8 +53,6 @@ messageHandlers[messageAuth] = (encoder, decoder, provider, emitSynced, messageT
   authProtocol.readAuthMessage(decoder, provider.doc, permissionDeniedHandler)
 }
 
-const reconnectTimeoutBase = 1200
-const maxReconnectTimeout = 2500
 // @todo - this should depend on awareness.outdatedTime
 const messageReconnectTimeout = 30000
 
@@ -102,7 +100,11 @@ const setupWS = provider => {
         websocket.send(encoding.toUint8Array(encoder))
       }
     }
-    websocket.onclose = () => {
+    websocket.onerror = event => {
+      provider.emit('connection-error', [event, provider])
+    }
+    websocket.onclose = event => {
+      provider.emit('connection-close', [event, provider])
       provider.ws = null
       provider.wsconnecting = false
       if (provider.wsconnected) {
@@ -117,10 +119,8 @@ const setupWS = provider => {
         provider.wsUnsuccessfulReconnects++
       }
       // Start with no reconnect timeout and increase timeout by
-      // log10(wsUnsuccessfulReconnects).
-      // The idea is to increase reconnect timeout slowly and have no reconnect
-      // timeout at the beginning (log(1) = 0)
-      setTimeout(setupWS, math.min(math.log10(provider.wsUnsuccessfulReconnects + 1) * reconnectTimeoutBase, maxReconnectTimeout), provider)
+      // using exponential backoff starting with 100ms
+      setTimeout(setupWS, math.min(math.pow(2, provider.wsUnsuccessfulReconnects) * 100, provider.maxBackoffTime), provider)
     }
     websocket.onopen = () => {
       provider.wsLastMessageReceived = time.getUnixTime()
@@ -189,14 +189,16 @@ export class WebsocketProvider extends Observable {
    * @param {Object<string,string>} [opts.params]
    * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
+   * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
    */
-  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1 } = {}) {
+  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1, maxBackoffTime = 2500 } = {}) {
     super()
     // ensure that url is always ends with /
     while (serverUrl[serverUrl.length - 1] === '/') {
       serverUrl = serverUrl.slice(0, serverUrl.length - 1)
     }
     const encodedParams = url.encodeQueryParams(params)
+    this.maxBackoffTime = maxBackoffTime
     this.bcChannel = serverUrl + '/' + roomname
     this.url = serverUrl + '/' + roomname + (encodedParams.length === 0 ? '' : '?' + encodedParams)
     this.roomname = roomname
