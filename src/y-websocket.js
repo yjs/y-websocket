@@ -281,7 +281,7 @@ export class WebsocketProvider extends Observable {
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', this._beforeUnloadHandler)
     } else if (typeof process !== 'undefined') {
-      process.on('exit', () => this._beforeUnloadHandler)
+      process.on('exit', this._beforeUnloadHandler)
     }
     awareness.on('update', this._awarenessUpdateHandler)
     this._checkInterval = /** @type {any} */ (setInterval(() => {
@@ -320,7 +320,7 @@ export class WebsocketProvider extends Observable {
     if (typeof window !== 'undefined') {
       window.removeEventListener('beforeunload', this._beforeUnloadHandler)
     } else if (typeof process !== 'undefined') {
-      process.off('exit', () => this._beforeUnloadHandler)
+      process.off('exit', this._beforeUnloadHandler)
     }
     this.awareness.off('update', this._awarenessUpdateHandler)
     this.doc.off('update', this._updateHandler)
