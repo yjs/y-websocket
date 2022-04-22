@@ -187,8 +187,17 @@ export class WebsocketProvider extends Observable {
    * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
+   * @param {boolean} [opts.disableBc] Disable cross-tab BroadcastChannel communication
    */
-  constructor (serverUrl, roomname, doc, { connect = true, awareness = new awarenessProtocol.Awareness(doc), params = {}, WebSocketPolyfill = WebSocket, resyncInterval = -1, maxBackoffTime = 2500 } = {}) {
+  constructor (serverUrl, roomname, doc, {
+    connect = true,
+    awareness = new awarenessProtocol.Awareness(doc),
+    params = {},
+    WebSocketPolyfill = WebSocket,
+    resyncInterval = -1,
+    maxBackoffTime = 2500,
+    disableBc = false
+  } = {}) {
     super()
     // ensure that url is always ends with /
     while (serverUrl[serverUrl.length - 1] === '/') {
@@ -205,6 +214,7 @@ export class WebsocketProvider extends Observable {
     this.wsconnected = false
     this.wsconnecting = false
     this.bcconnected = false
+    this.disableBc = disableBc
     this.wsUnsuccessfulReconnects = 0
     this.messageHandlers = messageHandlers.slice()
     /**
@@ -328,6 +338,9 @@ export class WebsocketProvider extends Observable {
   }
 
   connectBc () {
+    if (this.disableBc) {
+      return
+    }
     if (!this.bcconnected) {
       bc.subscribe(this.bcChannel, this._bcSubscriber)
       this.bcconnected = true
