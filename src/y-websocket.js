@@ -19,7 +19,8 @@ import * as awarenessProtocol from 'y-protocols/awareness'
 import { Observable } from 'lib0/observable'
 import * as math from 'lib0/math'
 import * as url from 'lib0/url'
-import { WebSocket } from 'ws'
+import pkg from 'ws';
+const { WebSocket } = pkg;
 
 const messageSync = 0
 const messageQueryAwareness = 3
