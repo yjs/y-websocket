@@ -238,7 +238,7 @@ export class WebsocketProvider extends Observable {
     this._resyncInterval = 0
     if (resyncInterval > 0) {
       this._resyncInterval = /** @type {any} */ (setInterval(() => {
-        if (this.ws) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
           // resend sync step 1
           const encoder = encoding.createEncoder()
           encoding.writeVarUint(encoder, messageSync)
