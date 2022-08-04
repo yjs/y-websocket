@@ -35,7 +35,14 @@ messageHandlers[messageSync] = (
   emitSynced,
   _messageType
 ) => {
+  const docGuid = decoding.readVarString(decoder)
+  const doc = provider.getDoc(docGuid)
+  if (!doc) {
+    console.error('doc not found with id: ', docGuid)
+    return
+  }
   encoding.writeVarUint(encoder, messageSync)
+  encoding.writeVarString(encoder, docGuid)
   const syncMessageType = syncProtocol.readSyncMessage(
     decoder,
     encoder,
@@ -125,6 +132,18 @@ const readMessage = (provider, buf, emitSynced) => {
 }
 
 /**
+ * 
+ * @param {encoding.Encoder} encoder 
+ */
+const needSend = (encoder) => {
+  const buf = encoding.toUint8Array(encoder)
+  const decoder = decoding.createDecoder(buf)
+  decoding.readVarUint(decoder)
+  decoding.readVarString(decoder)
+  return decoding.hasContent(decoder)
+}
+
+/**
  * @param {WebsocketProvider} provider
  */
 const setupWS = (provider) => {
@@ -138,8 +157,9 @@ const setupWS = (provider) => {
 
     websocket.onmessage = (event) => {
       provider.wsLastMessageReceived = time.getUnixTime()
-      const encoder = readMessage(provider, new Uint8Array(event.data), true)
-      if (encoding.length(encoder) > 1) {
+      // @todo disable emitSync for now, should also notify sub docs
+      const encoder = readMessage(provider, new Uint8Array(event.data), false)
+      if (encoding.length(encoder) > 1 && needSend(encoder)) {
         websocket.send(encoding.toUint8Array(encoder))
       }
     }
@@ -183,14 +203,16 @@ const setupWS = (provider) => {
       provider.wsconnecting = false
       provider.wsconnected = true
       provider.wsUnsuccessfulReconnects = 0
-      provider.emit('status', [{
-        status: 'connected'
-      }])
-      // always send sync step 1 when connected
-      const encoder = encoding.createEncoder()
-      encoding.writeVarUint(encoder, messageSync)
-      syncProtocol.writeSyncStep1(encoder, provider.doc)
-      websocket.send(encoding.toUint8Array(encoder))
+
+      // always send sync step 1 when connected (main doc & sub docs)
+      for (const [k, doc] of provider.docs) {
+        const encoder = encoding.createEncoder()
+        encoding.writeVarUint(encoder, messageSync)
+        encoding.writeVarString(encoder, k)
+        syncProtocol.writeSyncStep1(encoder, doc)
+        websocket.send(encoding.toUint8Array(encoder))
+      }
+
       // broadcast local awareness state
       if (provider.awareness.getLocalState() !== null) {
         const encoderAwarenessState = encoding.createEncoder()
@@ -203,6 +225,10 @@ const setupWS = (provider) => {
         )
         websocket.send(encoding.toUint8Array(encoderAwarenessState))
       }
+
+      provider.emit('status', [{
+        status: 'connected'
+      }])
     }
     provider.emit('status', [{
       status: 'connecting'
@@ -301,6 +327,13 @@ export class WebsocketProvider extends Observable {
      * @type {boolean}
      */
     this.shouldConnect = connect
+    /**
+     * manage all sub docs with doc self
+     * @type {Map}
+     */
+    this.docs = new Map()
+    this.docs.set(this.roomname, doc)
+    this.subdocUpdateHandlers = new Map()
 
     /**
      * @type {number}
@@ -339,6 +372,7 @@ export class WebsocketProvider extends Observable {
       if (origin !== this) {
         const encoder = encoding.createEncoder()
         encoding.writeVarUint(encoder, messageSync)
+        encoding.writeVarString(encoder, this.roomname)
         syncProtocol.writeUpdate(encoder, update)
         broadcastMessage(this, encoding.toUint8Array(encoder))
       }
@@ -383,12 +417,60 @@ export class WebsocketProvider extends Observable {
     if (connect) {
       this.connect()
     }
+
+    /**
+     * Listen to sub documents updates
+     * @param {String} id identifier of sub documents 
+     * @returns 
+     */
+    this._getSubDocUpdateHandler = (id) => {
+      return (update, origin) => {
+        if (origin === this) return
+        const encoder = encoding.createEncoder()
+        encoding.writeVarUint(encoder, messageSync)
+        encoding.writeVarString(encoder, id)
+        syncProtocol.writeUpdate(encoder, update)
+        broadcastMessage(this, encoding.toUint8Array(encoder))
+      }
+    }
   }
 
   get url () {
     const encodedParams = url.encodeQueryParams(this.params)
     return this.serverUrl + '/' + this.roomname +
       (encodedParams.length === 0 ? '' : '?' + encodedParams)
+  }
+
+  /**
+   * @param {Y.Doc} subdoc 
+   */
+  addSubdoc (subdoc) {
+    let updateHandler = this._getSubDocUpdateHandler(subdoc.guid)
+    this.docs.set(subdoc.guid, subdoc)
+    this.subdocUpdateHandlers.set(subdoc.guid, updateHandler)
+
+    // invoke sync step1
+    const encoder = encoding.createEncoder()
+    encoding.writeVarUint(encoder, messageSync)
+    encoding.writeVarString(encoder, subdoc.guid)
+    syncProtocol.writeSyncStep1(encoder, subdoc)
+    broadcastMessage(this, encoding.toUint8Array(encoder))
+  }
+
+  /**
+   * @param {Y.Doc} subdoc 
+   */
+  removeSubdoc (subdoc) {
+    subdoc.off('update', this.subdocUpdateHandlers.get(subdoc.guid))
+  }
+
+  /**
+   * get doc by id (main doc or sub doc)
+   * @param {String} id 
+   * @returns 
+   */
+  getDoc (id) {
+    return this.docs.get(id)
   }
 
   /**

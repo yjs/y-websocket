@@ -80,6 +80,7 @@ const messageAwareness = 1
 const updateHandler = (update, _origin, doc, _tr) => {
   const encoder = encoding.createEncoder()
   encoding.writeVarUint(encoder, messageSync)
+  encoding.writeVarString(encoder, doc.name)
   syncProtocol.writeUpdate(encoder, update)
   const message = encoding.toUint8Array(encoder)
   doc.conns.forEach((_, conn) => send(doc, conn, message))
@@ -163,7 +164,7 @@ exports.WSSharedDoc = WSSharedDoc
  */
 const getYDoc = (docname, gc = true) => map.setIfUndefined(docs, docname, () => {
   const doc = new WSSharedDoc(docname)
-  doc.gc = gc
+  doc.gc = false
   if (persistence !== null) {
     persistence.bindState(docname, doc)
   }
@@ -174,8 +175,35 @@ const getYDoc = (docname, gc = true) => map.setIfUndefined(docs, docname, () => 
 exports.getYDoc = getYDoc
 
 /**
+ * 
+ * @param {encoding.Encoder} encoder 
+ */
+ const needSend = (encoder) => {
+  const buf = encoding.toUint8Array(encoder)
+  const decoder = decoding.createDecoder(buf)
+  decoding.readVarUint(decoder)
+  decoding.readVarString(decoder)
+  return decoding.hasContent(decoder)
+}
+
+/**
+ * check current id whether is main doc or sub doc
+ * @param {String} id 
+ * @returns 
+ */
+const isSubdoc = (id) => {
+  return id.startsWith('sub')
+}
+
+/**
+ * relationship of main doc & sub docs 
+ * @type {Map<String, Map<String, WSSharedDoc>>} mainDocID, subDocID
+ */
+const subdocsMap = new Map()
+
+/**
  * @param {any} conn
- * @param {WSSharedDoc} doc
+ * @param {WSSharedDoc} doc main doc
  * @param {Uint8Array} message
  */
 const messageListener = (conn, doc, message) => {
@@ -185,7 +213,37 @@ const messageListener = (conn, doc, message) => {
     const messageType = decoding.readVarUint(decoder)
     switch (messageType) {
       case messageSync:
+        let targetDoc = doc
+        const docGuid = decoding.readVarString(decoder)
+        if (docGuid !== doc.name) {
+          // subdoc
+          targetDoc = getYDoc(docGuid, false)
+          if (!targetDoc.conns.has(conn)) targetDoc.conns.set(conn, new Set())
+
+          /**@type {Map<String, Boolean>}*/ const subm = subdocsMap.get(doc.name)
+          if (subm && subm.has(targetDoc.name)) {
+            // sync step 1 done before.
+          } else {
+            if (subm) {
+              subm.set(targetDoc.name, targetDoc)
+            } else {
+              const nm = new Map()
+              nm.set(targetDoc.name, targetDoc)
+              subdocsMap.set(doc.name, nm)
+            }
+
+            // send sync step 1
+            const encoder = encoding.createEncoder()
+            encoding.writeVarUint(encoder, messageSync)
+            encoding.writeVarString(encoder, targetDoc.name)
+            syncProtocol.writeSyncStep1(encoder, targetDoc)
+            send(targetDoc, conn, encoding.toUint8Array(encoder))
+          }
+
+        }
+
         encoding.writeVarUint(encoder, messageSync)
+        encoding.writeVarString(encoder, targetDoc.name)
         syncProtocol.readSyncMessage(decoder, encoder, doc, conn)
 
         // If the `encoder` only contains the type of reply message and no
@@ -226,6 +284,20 @@ const closeConn = (doc, conn) => {
         doc.destroy()
       })
       docs.delete(doc.name)
+    }
+
+    // clear sub docs
+    const m = subdocsMap.get(doc.name)
+    if (m && m.size > 0) {
+      for (const subdoc of m.values()) {
+        subdoc.conns.delete(conn)
+        if (subdoc.conns.size === 0 && persistence !== null) {
+          persistence.writeState(subdoc.name, doc).then(() => {
+            subdoc.destroy()
+          })
+          docs.delete(subdoc.name)
+        }
+      }
     }
   }
   conn.close()
@@ -293,6 +365,7 @@ exports.setupWSConnection = (conn, req, { docName = (req.url || '').slice(1).spl
     // send sync step 1
     const encoder = encoding.createEncoder()
     encoding.writeVarUint(encoder, messageSync)
+    encoding.writeVarString(encoder, doc.name)
     syncProtocol.writeSyncStep1(encoder, doc)
     send(doc, conn, encoding.toUint8Array(encoder))
     const awarenessStates = doc.awareness.getStates()
