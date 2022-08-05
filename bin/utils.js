@@ -4,7 +4,6 @@ const awarenessProtocol = require('y-protocols/dist/awareness.cjs')
 
 const encoding = require('lib0/dist/encoding.cjs')
 const decoding = require('lib0/dist/decoding.cjs')
-const mutex = require('lib0/dist/mutex.cjs')
 const map = require('lib0/dist/map.cjs')
 
 const debounce = require('lodash.debounce')
@@ -92,7 +91,6 @@ class WSSharedDoc extends Y.Doc {
   constructor (name) {
     super({ gc: gcEnabled })
     this.name = name
-    this.mux = mutex.createMutex()
     /**
      * Maps from conn to set of controlled user ids. Delete all user ids from awareness when this conn is closed
      * @type {Map<Object, Set<number>>}
