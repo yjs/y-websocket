@@ -49,11 +49,13 @@ messageHandlers[messageSync] = (
     provider.doc,
     provider
   )
-  if (
-    emitSynced && syncMessageType === syncProtocol.messageYjsSyncStep2 &&
-    !provider.synced
-  ) {
+  if (emitSynced && docGuid === provider.roomname && syncMessageType === syncProtocol.messageYjsSyncStep2 && !provider.synced) {
     provider.synced = true
+  }
+
+  // sub doc synced
+  if (emitSynced && docGuid !== provider.roomname && syncMessageType === syncProtocol.messageYjsSyncStep2 && !provider._syncedStatus.get(docGuid)) {
+    provider.updateSyncedStatus(docGuid, true)
   }
 }
 
@@ -158,7 +160,7 @@ const setupWS = (provider) => {
     websocket.onmessage = (event) => {
       provider.wsLastMessageReceived = time.getUnixTime()
       // @todo disable emitSync for now, should also notify sub docs
-      const encoder = readMessage(provider, new Uint8Array(event.data), false)
+      const encoder = readMessage(provider, new Uint8Array(event.data), true)
       if (encoding.length(encoder) > 1 && needSend(encoder)) {
         websocket.send(encoding.toUint8Array(encoder))
       }
@@ -328,12 +330,17 @@ export class WebsocketProvider extends Observable {
      */
     this.shouldConnect = connect
     /**
-     * manage all sub docs with doc self
+     * manage all sub docs with main doc self
      * @type {Map}
      */
     this.docs = new Map()
     this.docs.set(this.roomname, doc)
     this.subdocUpdateHandlers = new Map()
+
+    /**
+     * store synced status for sub docs
+     */
+    this._syncedStatus = new Map()
 
     /**
      * @type {number}
@@ -485,6 +492,14 @@ export class WebsocketProvider extends Observable {
       this._synced = state
       this.emit('synced', [state])
       this.emit('sync', [state])
+    }
+  }
+
+  updateSyncedStatus (id, state) {
+    const oldState = this._syncedStatus.get(id)
+    if (oldState !== state) {
+      this._syncedStatus = state
+      this.emit('subdoc_synced', [id, state])
     }
   }
 
