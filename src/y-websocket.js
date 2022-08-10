@@ -454,6 +454,7 @@ export class WebsocketProvider extends Observable {
   addSubdoc (subdoc) {
     let updateHandler = this._getSubDocUpdateHandler(subdoc.guid)
     this.docs.set(subdoc.guid, subdoc)
+    subdoc.on('update', updateHandler)
     this.subdocUpdateHandlers.set(subdoc.guid, updateHandler)
 
     // invoke sync step1
