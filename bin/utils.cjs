@@ -262,21 +262,6 @@ const messageListener = (conn, doc, message) => {
  */
 const closeConn = (doc, conn) => {
   if (doc.conns.has(conn)) {
-    /**
-     * @type {Set<number>}
-     */
-    // @ts-ignore
-    const controlledIds = doc.conns.get(conn)
-    doc.conns.delete(conn)
-    awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
-    if (doc.conns.size === 0 && persistence !== null) {
-      // if persisted, we store state and destroy ydocument
-      persistence.writeState(doc.name, doc).then(() => {
-        doc.destroy()
-      })
-      docs.delete(doc.name)
-    }
-
     // clear sub docs
     const m = subdocsMap.get(doc.name)
     if (m && m.size > 0) {
@@ -290,6 +275,23 @@ const closeConn = (doc, conn) => {
         }
       }
     }
+    
+    /**
+     * @type {Set<number>}
+     */
+    // @ts-ignore
+    const controlledIds = doc.conns.get(conn)
+    doc.conns.delete(conn)
+    awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
+    if (doc.conns.size === 0 && persistence !== null) {
+      // if persisted, we store state and destroy ydocument
+      persistence.writeState(doc.name, doc).then(() => {
+        doc.destroy()
+      })
+      docs.delete(doc.name)
+      subdocsMap.delete(doc.name)
+    }
+
   }
   conn.close()
 }
