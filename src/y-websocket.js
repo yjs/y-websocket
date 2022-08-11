@@ -499,7 +499,7 @@ export class WebsocketProvider extends Observable {
   updateSyncedStatus (id, state) {
     const oldState = this._syncedStatus.get(id)
     if (oldState !== state) {
-      this._syncedStatus = state
+      this._syncedStatus.set(id, state)
       this.emit('subdoc_synced', [id, state])
     }
   }
