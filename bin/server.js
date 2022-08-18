@@ -30,6 +30,6 @@ server.on('upgrade', (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, handleAuth)
 })
 
-server.listen(port, () => {
+server.listen(port, host, () => {
   console.log(`running at '${host}' on port ${port}`)
 })
