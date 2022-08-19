@@ -168,6 +168,10 @@ const messageListener = (conn, doc, message) => {
       case messageSync:
         encoding.writeVarUint(encoder, messageSync)
         syncProtocol.readSyncMessage(decoder, encoder, doc, null)
+        
+        // If the `encoder` only contains the type of reply message and no 
+        // message, there is no need to send the message. When `encoder` only 
+        // contains the type of reply, its length is 1.
         if (encoding.length(encoder) > 1) {
           send(doc, conn, encoding.toUint8Array(encoder))
         }
