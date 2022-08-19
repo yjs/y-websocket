@@ -20,10 +20,10 @@ import { Observable } from 'lib0/observable'
 import * as math from 'lib0/math'
 import * as url from 'lib0/url'
 
-const messageSync = 0
-const messageQueryAwareness = 3
-const messageAwareness = 1
-const messageAuth = 2
+export const messageSync = 0
+export const messageQueryAwareness = 3
+export const messageAwareness = 1
+export const messageAuth = 2
 
 /**
  *                       encoder,          decoder,          provider,          emitSynced, messageType
