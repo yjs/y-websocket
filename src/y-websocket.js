@@ -49,7 +49,7 @@ messageHandlers[messageAwareness] = (encoder, decoder, provider, emitSynced, mes
 }
 
 messageHandlers[messageAuth] = (encoder, decoder, provider, emitSynced, messageType) => {
-  authProtocol.readAuthMessage(decoder, provider.doc, permissionDeniedHandler)
+  authProtocol.readAuthMessage(decoder, provider.doc, (_ydoc, reason) => permissionDeniedHandler(provider, reason))
 }
 
 // @todo - this should depend on awareness.outdatedTime
