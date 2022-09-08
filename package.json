@@ -55,7 +55,7 @@
     ]
   },
   "dependencies": {
-    "lib0": "^0.2.42",
+    "lib0": "^0.2.52",
     "lodash.debounce": "^4.0.8",
     "y-protocols": "^1.0.5"
   },
