@@ -215,7 +215,7 @@ const setupWS = (provider) => {
  * @param {ArrayBuffer} buf
  */
 const broadcastMessage = (provider, buf) => {
-  if (provider.wsconnected) {
+  if (provider.wsconnected && provider.ws && provider.ws.readyState === provider.ws.OPEN) {
     /** @type {WebSocket} */ (provider.ws).send(buf)
   }
   if (provider.bcconnected) {
