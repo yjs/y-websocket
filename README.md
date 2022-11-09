@@ -96,8 +96,10 @@ wsOpts = {
   <dd>Destroy this wsProvider instance. Disconnects from the server and removes all event handlers.</dd>
   <b><code>wsProvider.on('sync', function(isSynced: boolean))</code></b>
   <dd>Add an event listener for the sync event that is fired when the client received content from the server.</dd>
-  <b><code>wsProvider.on('status', function({ status: 'disconnected' | 'connecting' | 'connected' }))</code></b>
+  <b><code>wsProvider.on('status', function({ status: 'disconnected' | 'connecting' | 'connected' | 'timeout' }))</code></b>
   <dd>Receive updates about the current connection status.</dd>
+  <dd>Note: The `timeout` event fires when there hasn't been any update on the WebSocket for `messageReconnectTimeout`, and the WebSocket 
+    is marked for closing. The `disconnected` event is only fired after the closing handshake (which can get delayed when there is network disconenction).</dd>
   <b><code>wsProvider.on('connection-close', function(WSClosedEvent))</code></b>
   <dd>Fires when the underlying websocket connection is closed. It forwards the websocket event to this event handler.</dd>
   <b><code>wsProvider.on('connection-error', function(WSErrorEvent))</code></b>
