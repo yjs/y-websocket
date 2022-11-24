@@ -1,0 +1,23 @@
+name: Ping Cron Job
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow every 15 minutes
+  schedule:
+    - cron: "*/15 * * * *"
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "cron"
+  cron:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Runs a single command using the runners shell
+      - name: Ping WSS Server
+        shell: bash
+        env:
+          DEPLOY_HOOK: ${{ secrets.DEPLOY_HOOK }}
+        run: curl -f https://falinks-teambuilder-ws-server.onrender.com/ || curl "$DEPLOY_HOOK"
