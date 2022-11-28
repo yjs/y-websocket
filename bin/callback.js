@@ -38,9 +38,14 @@ const callbackRequest = (url, timeout, data) => {
   const options = {
     hostname: url.hostname,
     port: url.port,
-    path: url.pathname,
+    path: url.pathname + url.search,
     timeout,
     method: 'POST',
+    auth: (
+      (url.username || url.password)
+      ? url.username + ':' + url.password
+      : ''
+    ),
     headers: {
       'Content-Type': 'application/json',
       'Content-Length': data.length
