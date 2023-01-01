@@ -31,6 +31,7 @@
     "./bin/utils": "./bin/utils.js",
     "./bin/callback": "./bin/callback.js",
     ".": {
+      "module": "./src/y-websocket.js",
       "import": "./src/y-websocket.js",
       "require": "./dist/y-websocket.cjs"
     }
