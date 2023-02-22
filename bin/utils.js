@@ -167,7 +167,7 @@ const messageListener = (conn, doc, message) => {
     switch (messageType) {
       case messageSync:
         encoding.writeVarUint(encoder, messageSync)
-        syncProtocol.readSyncMessage(decoder, encoder, doc, null)
+        syncProtocol.readSyncMessage(decoder, encoder, doc, conn)
 
         // If the `encoder` only contains the type of reply message and no
         // message, there is no need to send the message. When `encoder` only
