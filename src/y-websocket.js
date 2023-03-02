@@ -203,7 +203,6 @@ const setupWS = (provider) => {
         websocket.send(encoding.toUint8Array(encoderAwarenessState))
       }
     }
-
     provider.emit('status', [{
       status: 'connecting'
     }])
@@ -215,8 +214,9 @@ const setupWS = (provider) => {
  * @param {ArrayBuffer} buf
  */
 const broadcastMessage = (provider, buf) => {
-  if (provider.wsconnected && provider.ws && provider.ws.readyState === provider.ws.OPEN) {
-    /** @type {WebSocket} */ (provider.ws).send(buf)
+  const ws = provider.ws
+  if (provider.wsconnected && ws && ws.readyState === ws.OPEN) {
+    ws.send(buf)
   }
   if (provider.bcconnected) {
     bc.publish(provider.bcChannel, buf, provider)
