@@ -56,8 +56,8 @@ exports.setPersistence = persistence_ => {
 
 /**
  * @return {null|{bindState: function(string,WSSharedDoc):void,
-  * writeState:function(string,WSSharedDoc):Promise<any>}|null} used persistence layer
-  */
+ * writeState:function(string,WSSharedDoc):Promise<any>}|null} used persistence layer
+ */
 exports.getPersistence = () => persistence
 
 /**
@@ -144,12 +144,15 @@ class WSSharedDoc extends Y.Doc {
  */
 const getYDoc = (docname, gc = true) => map.setIfUndefined(docs, docname, () => {
   const doc = new WSSharedDoc(docname)
+  let docLoadedPromise = null
   doc.gc = gc
   if (persistence !== null) {
-    persistence.bindState(docname, doc)
+    // persistence.bindState(docname, doc)
+    docLoadedPromise = persistence.bindState(docname, doc)
   }
   docs.set(docname, doc)
-  return doc
+  // return doc
+  return {doc, docLoadedPromise}
 })
 
 exports.getYDoc = getYDoc
@@ -196,7 +199,7 @@ const closeConn = (doc, conn) => {
     /**
      * @type {Set<number>}
      */
-    // @ts-ignore
+      // @ts-ignore
     const controlledIds = doc.conns.get(conn)
     doc.conns.delete(conn)
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
@@ -237,10 +240,23 @@ const pingTimeout = 30000
 exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
   // get doc, initialize if it does not exist yet
-  const doc = getYDoc(docName, gc)
+  // const doc = getYDoc(docName, gc)
+  const {doc, docLoadedPromise} = getYDoc(docName, gc)
   doc.conns.set(conn, new Set())
+
+  let isDocLoaded = docLoadedPromise ? false : true
+  let queuedMessages = []
+  let isConnectionAlive = true
+
   // listen and reply to events
-  conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
+  // conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
+  conn.on('message', /** @param {ArrayBuffer} message */ message => {
+    if (isDocLoaded) {
+      messageListener(conn, doc, new Uint8Array(message))
+    } else {
+      queuedMessages.push(new Uint8Array(message))
+    }
+  })
 
   // Check if connection is still alive
   let pongReceived = true
@@ -248,6 +264,7 @@ exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[
     if (!pongReceived) {
       if (doc.conns.has(conn)) {
         closeConn(doc, conn)
+        isConnectionAlive = false
       }
       clearInterval(pingInterval)
     } else if (doc.conns.has(conn)) {
@@ -256,12 +273,14 @@ exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[
         conn.ping()
       } catch (e) {
         closeConn(doc, conn)
+        isConnectionAlive = false
         clearInterval(pingInterval)
       }
     }
   }, pingTimeout)
   conn.on('close', () => {
     closeConn(doc, conn)
+    isConnectionAlive = false
     clearInterval(pingInterval)
   })
   conn.on('pong', () => {
@@ -269,7 +288,8 @@ exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[
   })
   // put the following in a variables in a block so the interval handlers don't keep in in
   // scope
-  {
+
+  const sendSyncStep1 = () => {
     // send sync step 1
     const encoder = encoding.createEncoder()
     encoding.writeVarUint(encoder, messageSync)
@@ -282,5 +302,18 @@ exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[
       encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(doc.awareness, Array.from(awarenessStates.keys())))
       send(doc, conn, encoding.toUint8Array(encoder))
     }
+  }
+
+  if (docLoadedPromise) {
+    docLoadedPromise.then(() => {
+      if (!isConnectionAlive) {
+        return
+      }
+
+      isDocLoaded = true
+      queuedMessages.forEach(message => messageListener(conn, doc, message))
+      queuedMessages = null
+      sendSyncStep1()
+    })
   }
 }
