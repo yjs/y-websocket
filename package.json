@@ -33,7 +33,8 @@
     ".": {
       "module": "./src/y-websocket.js",
       "import": "./src/y-websocket.js",
-      "require": "./dist/y-websocket.cjs"
+      "require": "./dist/y-websocket.cjs",
+      "types": "./dist/src/y-websocket.d.ts"
     }
   },
   "repository": {
