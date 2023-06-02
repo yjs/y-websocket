@@ -5,7 +5,7 @@
  */
 const WebSocket = require('ws')
 const http = require('http')
-const wss = new WebSocket.Server('wss://the-decentral-web.herokuapp.com')
+const wss = new WebSocket.Server({ noServer: true })
 const setupWSConnection = require('./utils.js').setupWSConnection
 
 const host = process.env.HOST || 'localhost'
