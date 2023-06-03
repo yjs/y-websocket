@@ -21,6 +21,7 @@ wss.on('connection', setupWSConnection)
 
 server.on('upgrade', (request, socket, head) => {
   // You may check auth of request here..
+  // See https://github.com/websockets/ws#client-authentication
   /**
    * @param {any} ws
    */
@@ -30,6 +31,6 @@ server.on('upgrade', (request, socket, head) => {
   wss.handleUpgrade(request, /** @type {any} */ (socket), head, handleAuth)
 })
 
-server.listen(port, () => {
+server.listen(port, host, () => {
   console.log(`running at '${host}' on port ${port}`)
 })
