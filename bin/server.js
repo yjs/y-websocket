@@ -9,6 +9,7 @@ const wss = new WebSocket.Server({ noServer: true })
 const setupWSConnection = require('./utils.js').setupWSConnection
 
 const host = process.env.HOST || 'localhost'
+// SST: changed from fallback 1234 to 80
 const port = process.env.PORT || 80
 
 const server = http.createServer((request, response) => {
@@ -30,6 +31,7 @@ server.on('upgrade', (request, socket, head) => {
   wss.handleUpgrade(request, socket, head, handleAuth)
 })
 
+// SST: changed from "port, host, ()" to only "port, ()" to not pass host at all, works on heroku
 server.listen(port, () => {
   console.log(`running at '${host}' on port ${port}`)
 })

@@ -26,7 +26,8 @@ const persistenceDir = process.env.YPERSISTENCE
  * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise<any>, provider: any}|null}
  */
 let persistence = null
-if (typeof persistenceDir === 'string') {
+// SST: NO Persistence since this has to be a decentral app and the server shall not keep any data after connection closed
+/*if (typeof persistenceDir === 'string') {
   console.info('Persisting documents to "' + persistenceDir + '"')
   // @ts-ignore
   const LeveldbPersistence = require('y-leveldb').LeveldbPersistence
@@ -44,7 +45,7 @@ if (typeof persistenceDir === 'string') {
     },
     writeState: async (docName, ydoc) => {}
   }
-}
+}*/
 
 /**
  * @param {{bindState: function(string,WSSharedDoc):void,
@@ -206,6 +207,12 @@ const closeConn = (doc, conn) => {
         doc.destroy()
       })
       docs.delete(doc.name)
+    }
+    // SST: destroy the runtime doc when no connections
+    if (doc.conns.size === 0) {
+      doc.destroy()
+      docs.delete(doc.name)
+      console.log('destroyed');
     }
   }
   conn.close()
