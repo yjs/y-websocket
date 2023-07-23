@@ -21,13 +21,12 @@ const wsReadyStateClosed = 3 // eslint-disable-line
 
 // disable gc when using snapshots!
 const gcEnabled = process.env.GC !== 'false' && process.env.GC !== '0'
-const persistenceDir = process.env.YPERSISTENCE
+const persistenceDir = process.env.YPERSISTENCE || '/tmp/_leveldb' // sst: fallback value
 /**
  * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise<any>, provider: any}|null}
  */
 let persistence = null
-// SST: NO Persistence since this has to be a decentral app and the server shall not keep any data after connection closed
-/*if (typeof persistenceDir === 'string') {
+if (typeof persistenceDir === 'string') {
   console.info('Persisting documents to "' + persistenceDir + '"')
   // @ts-ignore
   const LeveldbPersistence = require('y-leveldb').LeveldbPersistence
@@ -43,9 +42,10 @@ let persistence = null
         ldb.storeUpdate(docName, update)
       })
     },
+    clearDocument: async (docName) => ldb.clearDocument(docName), // sst: extended exposed props according https://github.com/yjs/y-leveldb/tree/master
     writeState: async (docName, ydoc) => {}
   }
-}*/
+}
 
 /**
  * @param {{bindState: function(string,WSSharedDoc):void,
@@ -201,19 +201,36 @@ const closeConn = (doc, conn) => {
     const controlledIds = doc.conns.get(conn)
     doc.conns.delete(conn)
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
-    if (doc.conns.size === 0 && persistence !== null) {
-      // if persisted, we store state and destroy ydocument
-      persistence.writeState(doc.name, doc).then(() => {
-        doc.destroy()
-      })
-      docs.delete(doc.name)
-    }
-    // SST: destroy the runtime doc when no connections
+    // sst: extended persistence and doc live behavior
     if (doc.conns.size === 0) {
-      doc.destroy()
-      docs.delete(doc.name)
-      console.log('destroyed');
+      if (keepAlive.has(doc.name) && keepAlive.get(doc.name).delay > 0) {
+        if (persistence !== null) {
+          // if persisted, we store state and destroy ydocument
+          persistence.writeState(doc.name, doc).then(() => {
+            doc.destroy()
+            keepAlive.get(doc.name).timeout = setTimeout(() => {
+              persistence.clearDocument(doc.name)
+            }, keepAlive.get(doc.name).delay)
+          })
+          docs.delete(doc.name)
+        } else {
+          keepAlive.get(doc.name).timeout = setTimeout(() => {
+            doc.destroy()
+            docs.delete(doc.name)
+          }, keepAlive.get(doc.name).delay)
+        }
+      } else {
+        if (persistence !== null) {
+          doc.destroy()
+          docs.delete(doc.name)
+          persistence.clearDocument(doc.name)
+        } else {
+          doc.destroy()
+          docs.delete(doc.name)
+        }
+      }
     }
+    // /sst
   }
   conn.close()
 }
@@ -236,16 +253,26 @@ const send = (doc, conn, m) => {
 
 const pingTimeout = 30000
 
+const keepAlive = new Map() // sst: keep track on query parameter "keep-alive" and delete/destroy the doc after such timeout
+
 /**
  * @param {any} conn
  * @param {any} req
  * @param {any} opts
  */
 exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
-  // TODO: allow certain rooms to have persistence
   conn.binaryType = 'arraybuffer'
+  // sst: TODO: consider some mechanism to delete leveldb incase timeouts would get interrupted and would not execute their deletions
   // get doc, initialize if it does not exist yet
   const doc = getYDoc(docName, gc)
+  // sst: read keep-alive query parameter and delete the data after according timeouts
+  if (keepAlive.has(doc.name)) clearTimeout(keepAlive.get(doc.name).timeout)
+  keepAlive.set(doc.name, {
+    // simulate url to read the query parameters
+    delay: Number((new URL(`http:${req.url}`)).searchParams.get('keep-alive') || 0),
+    timeout: null
+  })
+  // /sst
   doc.conns.set(conn, new Set())
   // listen and reply to events
   conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
