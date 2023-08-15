@@ -123,29 +123,63 @@ const readMessage = (provider, buf, emitSynced) => {
   return encoder
 }
 
+const base64_arraybuffer = async (data) => {
+  // Use a FileReader to generate a base64 data URI
+  const base64url = await new Promise((r) => {
+      const reader = new FileReader()
+      reader.onload = () => r(reader.result)
+      reader.readAsDataURL(new Blob([data]))
+  })
+
+  /*
+  The result looks like
+  "data:application/octet-stream;base64,<your base64 data>",
+  so we split off the beginning:
+  */
+  return base64url.substring(base64url.indexOf(',')+1)
+}
+
+const toText = (data) => {
+  return new TextDecoder("latin1").decode(data)
+}
+
 /**
  * @param {WebsocketProvider} provider
  */
 const setupWS = (provider) => {
   if (provider.shouldConnect && provider.ws === null) {
-    const websocket = new provider._WS(provider.url)
-    websocket.binaryType = 'arraybuffer'
+    const websocket = new provider._WS(provider.url, provider.protocols)
+    // websocket.binaryType = 'arraybuffer'
     provider.ws = websocket
     provider.wsconnecting = true
     provider.wsconnected = false
     provider.synced = false
 
     websocket.onmessage = (event) => {
+      console.log(event);
+      console.log(typeof event.data);
+      var data = new Uint8Array(event.data);
+      if (!(event.data instanceof ArrayBuffer)) {
+        data = new Uint8Array(event.data.length);
+        data.forEach((_, i) => {
+          data[i] = event.data.charCodeAt(i);
+        });
+      }
+      console.log(data);
+      console.log(event);
       provider.wsLastMessageReceived = time.getUnixTime()
-      const encoder = readMessage(provider, new Uint8Array(event.data), true)
+      const encoder = readMessage(provider, data, true)
       if (encoding.length(encoder) > 1) {
-        websocket.send(encoding.toUint8Array(encoder))
+        // websocket.send(encoding.toUint8Array(encoder))
+        websocket.send(toText(encoding.toUint8Array(encoder)))
       }
     }
     websocket.onerror = (event) => {
+      console.log(event);
       provider.emit('connection-error', [event, provider])
     }
     websocket.onclose = (event) => {
+      console.log(event);
       provider.emit('connection-close', [event, provider])
       provider.ws = null
       provider.wsconnecting = false
@@ -178,6 +212,7 @@ const setupWS = (provider) => {
       )
     }
     websocket.onopen = () => {
+      console.log("ooopeeenn");
       provider.wsLastMessageReceived = time.getUnixTime()
       provider.wsconnecting = false
       provider.wsconnected = true
@@ -189,7 +224,12 @@ const setupWS = (provider) => {
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.writeSyncStep1(encoder, provider.doc)
-      websocket.send(encoding.toUint8Array(encoder))
+      // websocket.send(encoding.toUint8Array(encoder))
+      // websocket.send(toText(encoding.toUint8Array(encoder)))
+      base64_arraybuffer(encoding.toUint8Array(encoder)).then((data) => {
+        websocket.send(data)
+      })
+
       // broadcast local awareness state
       if (provider.awareness.getLocalState() !== null) {
         const encoderAwarenessState = encoding.createEncoder()
@@ -200,7 +240,12 @@ const setupWS = (provider) => {
             provider.doc.clientID
           ])
         )
-        websocket.send(encoding.toUint8Array(encoderAwarenessState))
+        console.log(encoding.toUint8Array(encoderAwarenessState))
+        // websocket.send(encoding.toUint8Array(encoderAwarenessState))
+        // websocket.send(toText(encoding.toUint8Array(encoderAwarenessState)))
+        base64_arraybuffer(encoding.toUint8Array(encoderAwarenessState)).then((data) => {
+          websocket.send(data)
+        })
       }
     }
     provider.emit('status', [{
@@ -216,7 +261,13 @@ const setupWS = (provider) => {
 const broadcastMessage = (provider, buf) => {
   const ws = provider.ws
   if (provider.wsconnected && ws && ws.readyState === ws.OPEN) {
-    ws.send(buf)
+    console.log(buf)
+    // ws.send(buf)
+    // ws.send(toText(buf))
+    base64_arraybuffer(buf).then((data) => {
+      ws.send(data)
+    })
+
   }
   if (provider.bcconnected) {
     bc.publish(provider.bcChannel, buf, provider)
@@ -245,6 +296,7 @@ export class WebsocketProvider extends Observable {
    * @param {boolean} [opts.connect]
    * @param {awarenessProtocol.Awareness} [opts.awareness]
    * @param {Object<string,string>} [opts.params]
+   * @param {Array<string>} [opts.protocols]
    * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
@@ -254,6 +306,7 @@ export class WebsocketProvider extends Observable {
     connect = true,
     awareness = new awarenessProtocol.Awareness(doc),
     params = {},
+    protocols = [],
     WebSocketPolyfill = WebSocket,
     resyncInterval = -1,
     maxBackoffTime = 2500,
@@ -269,6 +322,8 @@ export class WebsocketProvider extends Observable {
     this.bcChannel = serverUrl + '/' + roomname
     this.url = serverUrl + '/' + roomname +
       (encodedParams.length === 0 ? '' : '?' + encodedParams)
+    console.log("*****", this.url)
+    this.protocols = protocols
     this.roomname = roomname
     this.doc = doc
     this._WS = WebSocketPolyfill
