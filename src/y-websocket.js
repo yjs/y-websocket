@@ -149,15 +149,12 @@ const toText = (data) => {
 const setupWS = (provider) => {
   if (provider.shouldConnect && provider.ws === null) {
     const websocket = new provider._WS(provider.url, provider.protocols)
-    // websocket.binaryType = 'arraybuffer'
     provider.ws = websocket
     provider.wsconnecting = true
     provider.wsconnected = false
     provider.synced = false
 
     websocket.onmessage = (event) => {
-      console.log(event);
-      console.log(typeof event.data);
       var data = new Uint8Array(event.data);
       if (!(event.data instanceof ArrayBuffer)) {
         data = new Uint8Array(event.data.length);
@@ -165,21 +162,16 @@ const setupWS = (provider) => {
           data[i] = event.data.charCodeAt(i);
         });
       }
-      console.log(data);
-      console.log(event);
       provider.wsLastMessageReceived = time.getUnixTime()
       const encoder = readMessage(provider, data, true)
       if (encoding.length(encoder) > 1) {
-        // websocket.send(encoding.toUint8Array(encoder))
         websocket.send(toText(encoding.toUint8Array(encoder)))
       }
     }
     websocket.onerror = (event) => {
-      console.log(event);
       provider.emit('connection-error', [event, provider])
     }
     websocket.onclose = (event) => {
-      console.log(event);
       provider.emit('connection-close', [event, provider])
       provider.ws = null
       provider.wsconnecting = false
@@ -224,8 +216,6 @@ const setupWS = (provider) => {
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.writeSyncStep1(encoder, provider.doc)
-      // websocket.send(encoding.toUint8Array(encoder))
-      // websocket.send(toText(encoding.toUint8Array(encoder)))
       base64_arraybuffer(encoding.toUint8Array(encoder)).then((data) => {
         websocket.send(data)
       })
@@ -240,9 +230,6 @@ const setupWS = (provider) => {
             provider.doc.clientID
           ])
         )
-        console.log(encoding.toUint8Array(encoderAwarenessState))
-        // websocket.send(encoding.toUint8Array(encoderAwarenessState))
-        // websocket.send(toText(encoding.toUint8Array(encoderAwarenessState)))
         base64_arraybuffer(encoding.toUint8Array(encoderAwarenessState)).then((data) => {
           websocket.send(data)
         })
@@ -261,9 +248,6 @@ const setupWS = (provider) => {
 const broadcastMessage = (provider, buf) => {
   const ws = provider.ws
   if (provider.wsconnected && ws && ws.readyState === ws.OPEN) {
-    console.log(buf)
-    // ws.send(buf)
-    // ws.send(toText(buf))
     base64_arraybuffer(buf).then((data) => {
       ws.send(data)
     })
@@ -322,7 +306,6 @@ export class WebsocketProvider extends Observable {
     this.bcChannel = serverUrl + '/' + roomname
     this.url = serverUrl + '/' + roomname +
       (encodedParams.length === 0 ? '' : '?' + encodedParams)
-    console.log("*****", this.url)
     this.protocols = protocols
     this.roomname = roomname
     this.doc = doc
