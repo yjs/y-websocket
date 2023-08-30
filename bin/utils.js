@@ -21,6 +21,7 @@ const wsReadyStateClosed = 3 // eslint-disable-line
 
 // SST: added web-push for notifications
 const webpush = require('web-push')
+webpush.setVapidDetails('mailto: <weedshaker@gmail.com>', 'BITPxH2Sa4eoGRCqJtvmOnGFCZibh_ZaUFNmzI_f3q-t2FwA3HkgMqlOqN37L2vwm_RBlwmbcmVSOjPeZCW6YI4', 'crRVYz3u_HjT6Y1n8tTwSsDPMfPZJU3_AruHwevoxxk');
 const subscriptions = exports.subscriptions = new Map()
 
 // disable gc when using snapshots!
@@ -138,7 +139,9 @@ class WSSharedDoc extends Y.Doc {
       ))
     }
     // SST: Notification
-    this.on('update', () => console.log('update', subscriptions))
+    this.on('update', () => {
+      if (subscriptions.has(name)) subscriptions.get(name).forEach((subscription, room) => webpush.sendNotification(subscription, JSON.stringify({ title: `New entries in the room: ${room}`, body: 'You got an update!' })).catch(console.log))
+    })
   }
 }
 

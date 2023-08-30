@@ -16,7 +16,7 @@ const port = process.env.PORT || 80
 
 const server = http.createServer((request, response) => {
   // SST: Escape for Notification
-  if (request.url === '/subscribe') {
+  if (request.url === '/subscribe' || request.url === '/unsubscribe') {
     if (request.method === 'OPTIONS') {
       response.writeHead(202, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' })
       response.end('go ahead')
@@ -25,24 +25,36 @@ const server = http.createServer((request, response) => {
     let body = ''
     request.on('data', chunk => body += chunk)
     request.on('end', () => {
-        if (!body) {
-          response.writeHead(400, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' })
-          response.end('requires body aka payload')
-          return
+      if (!body) {
+        response.writeHead(400, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' })
+        response.end('requires body aka payload')
+        return
+      }
+      try {
+        body = JSON.parse(body.replace(/'/g, '"')) || null
+      } catch (e) {
+        body = null
+      }
+      if (!body.room) {
+        response.writeHead(400, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' })
+        response.end('body payload requires the property room, userVisibleOnly and applicationServerKey as string!')
+        return
+      }
+      const room = body.room
+      delete body.room
+      if (request.url === '/subscribe') {
+        if (subscriptions.has(room)) {
+          subscriptions.get(room).push(body)
+        } else {
+          subscriptions.set(room, [body])
         }
-        try {
-          body = JSON.parse(body.replace(/'/g, '"')) || null
-        } catch (e) {
-          body = null
-        }
-        if (!body.room) {
-          response.writeHead(400, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' })
-          response.end('body payload requires the property room string!')
-          return
-        }
-        subscriptions.set(body.room, body)
-        response.writeHead(201, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' })
-        response.end('subscribed')
+      } else if (subscriptions.has(room)) {
+        const subscription = subscriptions.get(room)
+        const index = subscription.findIndex(sub => JSON.stringify(sub.keys) === JSON.stringify(body.keys))
+        if (index !== -1) subscription.splice(index, 1)
+      }
+      response.writeHead(201, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' })
+      response.end(request.url + 'done')
     })
     return
   }
