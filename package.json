@@ -58,7 +58,8 @@
   "dependencies": {
     "lib0": "^0.2.52",
     "lodash.debounce": "^4.0.8",
-    "y-protocols": "^1.0.5"
+    "y-protocols": "^1.0.5",
+    "web-push": "*"
   },
   "devDependencies": {
     "@types/node": "^18.15.0",
