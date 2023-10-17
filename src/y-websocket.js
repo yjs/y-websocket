@@ -16,6 +16,8 @@ import { Observable } from 'lib0/observable'
 import * as math from 'lib0/math'
 import * as url from 'lib0/url'
 
+import { getEncoderSet } from './encoders'
+
 export const messageSync = 0
 export const messageQueryAwareness = 3
 export const messageAwareness = 1
@@ -127,17 +129,22 @@ const readMessage = (provider, buf, emitSynced) => {
  * @param {WebsocketProvider} provider
  */
 const setupWS = (provider) => {
+  const { requestEncoder, responseDecoder } = getEncoderSet(provider.socketType)
+
   if (provider.shouldConnect && provider.ws === null) {
-    const websocket = new provider._WS(provider.url)
-    websocket.binaryType = 'arraybuffer'
+    const websocket = new provider._WS(provider.url, provider.protocols, { headers: provider.headers })
     provider.ws = websocket
     provider.wsconnecting = true
     provider.wsconnected = false
     provider.synced = false
 
     websocket.onmessage = (event) => {
+      const data = responseDecoder(event.data)
+
       provider.wsLastMessageReceived = time.getUnixTime()
-      const encoder = readMessage(provider, new Uint8Array(event.data), true)
+
+      const encoder = readMessage(provider, data, true)
+
       if (encoding.length(encoder) > 1) {
         websocket.send(encoding.toUint8Array(encoder))
       }
@@ -189,7 +196,12 @@ const setupWS = (provider) => {
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.writeSyncStep1(encoder, provider.doc)
-      websocket.send(encoding.toUint8Array(encoder))
+
+      requestEncoder(encoding.toUint8Array(encoder))
+        .then(/** @param {any} data */ (data) => {
+          websocket.send(data)
+        })
+
       // broadcast local awareness state
       if (provider.awareness.getLocalState() !== null) {
         const encoderAwarenessState = encoding.createEncoder()
@@ -200,7 +212,11 @@ const setupWS = (provider) => {
             provider.doc.clientID
           ])
         )
-        websocket.send(encoding.toUint8Array(encoderAwarenessState))
+
+        requestEncoder(encoding.toUint8Array(encoderAwarenessState))
+          .then(/** @param {any} data */ (data) => {
+            websocket.send(data)
+          })
       }
     }
     provider.emit('status', [{
@@ -214,9 +230,13 @@ const setupWS = (provider) => {
  * @param {ArrayBuffer} buf
  */
 const broadcastMessage = (provider, buf) => {
+  const { requestEncoder } = getEncoderSet(provider.socketType)
   const ws = provider.ws
   if (provider.wsconnected && ws && ws.readyState === ws.OPEN) {
-    ws.send(buf)
+    requestEncoder(buf)
+      .then(/** @param {any} data */(data) => {
+        ws.send(data)
+      })
   }
   if (provider.bcconnected) {
     bc.publish(provider.bcChannel, buf, provider)
@@ -245,7 +265,10 @@ export class WebsocketProvider extends Observable {
    * @param {boolean} [opts.connect]
    * @param {awarenessProtocol.Awareness} [opts.awareness]
    * @param {Object<string,string>} [opts.params]
-   * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
+   * @param {Array<string>} [opts.protocols]
+   * @param {Object<string,string>} [opts.headers]
+   * @param {'arraybuffer' | 'aws'} [opts.socketType]
+   * @param {typeof WebSocket | typeof import('ws')} [opts.WebSocketPolyfill] Optionally provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
    * @param {boolean} [opts.disableBc] Disable cross-tab BroadcastChannel communication
@@ -254,6 +277,9 @@ export class WebsocketProvider extends Observable {
     connect = true,
     awareness = new awarenessProtocol.Awareness(doc),
     params = {},
+    protocols = [],
+    headers = {},
+    socketType = 'aws',
     WebSocketPolyfill = WebSocket,
     resyncInterval = -1,
     maxBackoffTime = 2500,
@@ -269,6 +295,9 @@ export class WebsocketProvider extends Observable {
     this.bcChannel = serverUrl + '/' + roomname
     this.url = serverUrl + '/' + roomname +
       (encodedParams.length === 0 ? '' : '?' + encodedParams)
+    this.protocols = protocols
+    this.headers = headers
+    this.socketType = socketType
     this.roomname = roomname
     this.doc = doc
     this._WS = WebSocketPolyfill
@@ -284,7 +313,7 @@ export class WebsocketProvider extends Observable {
      */
     this._synced = false
     /**
-     * @type {WebSocket?}
+     * @type {WebSocket | import('ws') | null}
      */
     this.ws = null
     this.wsLastMessageReceived = 0

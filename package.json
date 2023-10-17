@@ -1,7 +1,7 @@
 {
-  "name": "y-websocket",
+  "name": "@evolv/y-websocket",
   "version": "1.5.0",
-  "description": "Websockets provider for Yjs",
+  "description": "Forked version of Websockets provider for Yjs with support for different encoders",
   "main": "./dist/y-websocket.cjs",
   "module": "./src/y-websocket.js",
   "types": "./dist/src/y-websocket.d.ts",
@@ -15,7 +15,9 @@
     "dist": "rm -rf dist && rollup -c && tsc",
     "lint": "standard && tsc",
     "test": "npm run lint",
-    "preversion": "npm run lint && npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
+    "preversion": "npm run lint && npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs",
+    "prepack": "npm run dist",
+    "prepublishOnly": "npm run dist"
   },
   "bin": {
     "y-websocket-server": "./bin/server.js",
