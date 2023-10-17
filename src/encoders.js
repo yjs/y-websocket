@@ -48,19 +48,23 @@ const awsEncoderSetForBrowser = {
      */
     return base64Url.substring(base64Url.indexOf(',') + 1)
   },
-  /** @param {string | ArrayBuffer} data */
+  /** @param {Data} data */
   responseDecoder: (data) => {
-	if (data instanceof ArrayBuffer) {
+    if (data instanceof Uint8Array) {
+      return data
+    } else if (data instanceof ArrayBuffer || data instanceof Buffer) {
       return new Uint8Array(data)
+    } else if (typeof data === 'string') {
+      const arr = new Uint8Array(data.length)
+
+      arr.forEach((_, index) => {
+        arr[index] = data.charCodeAt(index)
+      })
+
+      return arr
+    } else {
+      throw new TypeError('Unexpected data type')
     }
-
-    const arr = new Uint8Array(data.length)
-
-    arr.forEach((_, index) => {
-      arr[index] = data.charCodeAt(index)
-    })
-
-    return arr
   }
 }
 
@@ -106,5 +110,5 @@ export function getEncoderSet (socketType) {
 
   return (isBrowser)
     ? awsEncoderSetForBrowser
-    : awsEncoderSetForNode;
+    : awsEncoderSetForNode
 }
