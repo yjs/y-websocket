@@ -264,15 +264,13 @@ export class WebsocketProvider extends Observable {
     while (serverUrl[serverUrl.length - 1] === '/') {
       serverUrl = serverUrl.slice(0, serverUrl.length - 1)
     }
-    const encodedParams = url.encodeQueryParams(params)
     this.maxBackoffTime = maxBackoffTime
-    this.bcChannel = serverUrl + '/' + roomname
-    this.url = serverUrl + '/' + roomname +
-      (encodedParams.length === 0 ? '' : '?' + encodedParams)
+    this.serverUrl = serverUrl
     this.roomname = roomname
     this.doc = doc
     this._WS = WebSocketPolyfill
     this.awareness = awareness
+    this.params = params
     this.wsconnected = false
     this.wsconnecting = false
     this.bcconnected = false
@@ -377,6 +375,15 @@ export class WebsocketProvider extends Observable {
     if (connect) {
       this.connect()
     }
+  }
+
+  get url () {
+    const encodedParams = url.encodeQueryParams(this.params)
+    return this.serverUrl + '/' + this.roomname + (encodedParams.length === 0 ? '' : '?' + encodedParams)
+  }
+
+  get bcChannel () {
+    return this.serverUrl + '/' + this.roomname
   }
 
   /**
