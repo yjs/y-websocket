@@ -11,7 +11,7 @@
     "url": "https://github.com/sponsors/dmonad"
   },
   "scripts": {
-    "start": "node ./bin/server.js",
+    "start": "HOST=localhost PORT=1234 YPERSISTENCE=./dbDir node ./bin/server.js",
     "dist": "rm -rf dist && rollup -c && tsc",
     "lint": "standard && tsc",
     "test": "npm run lint",
