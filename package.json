@@ -74,5 +74,9 @@
   "optionalDependencies": {
     "ws": "^6.2.1",
     "y-leveldb": "^0.1.0"
+  },
+  "engines": {
+    "npm": ">=8.0.0",
+    "node": ">=16.0.0"
   }
 }
