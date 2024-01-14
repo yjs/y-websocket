@@ -358,7 +358,7 @@ export class WebsocketProvider extends Observable {
       )
     }
     if (typeof window !== 'undefined') {
-      window.addEventListener('unload', this._unloadHandler)
+      window.addEventListener('pagehide', this._unloadHandler)
     } else if (typeof process !== 'undefined') {
       process.on('exit', this._unloadHandler)
     }
@@ -401,7 +401,7 @@ export class WebsocketProvider extends Observable {
     clearInterval(this._checkInterval)
     this.disconnect()
     if (typeof window !== 'undefined') {
-      window.removeEventListener('unload', this._unloadHandler)
+      window.removeEventListener('pagehide', this._unloadHandler)
     } else if (typeof process !== 'undefined') {
       process.off('exit', this._unloadHandler)
     }
