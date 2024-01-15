@@ -350,17 +350,15 @@ export class WebsocketProvider extends Observable {
       )
       broadcastMessage(this, encoding.toUint8Array(encoder))
     }
-    this._unloadHandler = () => {
+    this._exitHandler = () => {
       awarenessProtocol.removeAwarenessStates(
         this.awareness,
         [doc.clientID],
-        'window unload'
+        'app closed'
       )
     }
-    if (typeof window !== 'undefined') {
-      window.addEventListener('unload', this._unloadHandler)
-    } else if (typeof process !== 'undefined') {
-      process.on('exit', this._unloadHandler)
+    if (typeof process !== 'undefined') {
+      process.on('exit', this._exitHandler)
     }
     awareness.on('update', this._awarenessUpdateHandler)
     this._checkInterval = /** @type {any} */ (setInterval(() => {
@@ -400,10 +398,8 @@ export class WebsocketProvider extends Observable {
     }
     clearInterval(this._checkInterval)
     this.disconnect()
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('unload', this._unloadHandler)
-    } else if (typeof process !== 'undefined') {
-      process.off('exit', this._unloadHandler)
+    if (typeof process !== 'undefined') {
+      process.off('exit', this._exitHandler)
     }
     this.awareness.off('update', this._awarenessUpdateHandler)
     this.doc.off('update', this._updateHandler)
