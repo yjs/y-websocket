@@ -15,6 +15,7 @@ import * as awarenessProtocol from 'y-protocols/awareness'
 import { Observable } from 'lib0/observable'
 import * as math from 'lib0/math'
 import * as url from 'lib0/url'
+import * as env from 'lib0/environment'
 
 export const messageSync = 0
 export const messageQueryAwareness = 3
@@ -357,7 +358,7 @@ export class WebsocketProvider extends Observable {
         'app closed'
       )
     }
-    if (typeof process !== 'undefined') {
+    if (env.isNode && typeof process !== 'undefined') {
       process.on('exit', this._exitHandler)
     }
     awareness.on('update', this._awarenessUpdateHandler)
