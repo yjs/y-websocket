@@ -129,7 +129,7 @@ const readMessage = (provider, buf, emitSynced) => {
  */
 const setupWS = (provider) => {
   if (provider.shouldConnect && provider.ws === null) {
-    const websocket = new provider._WS(provider.url)
+    const websocket = new provider._WS(provider.url, [], provider.headers)
     websocket.binaryType = 'arraybuffer'
     provider.ws = websocket
     provider.wsconnecting = true
@@ -250,6 +250,7 @@ export class WebsocketProvider extends Observable {
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
    * @param {boolean} [opts.disableBc] Disable cross-tab BroadcastChannel communication
+   * @param {string} [opts.headers] Additional headers to send
    */
   constructor (serverUrl, roomname, doc, {
     connect = true,
@@ -258,7 +259,8 @@ export class WebsocketProvider extends Observable {
     WebSocketPolyfill = WebSocket,
     resyncInterval = -1,
     maxBackoffTime = 2500,
-    disableBc = false
+    disableBc = false,
+    headers = {"headers": {"User-Agent" :"Mozilla/5.0 (X11; Linux x86_64; rv:122.0) Gecko/20100101 Firefox/122.0"} }
   } = {}) {
     super()
     // ensure that url is always ends with /
@@ -280,6 +282,7 @@ export class WebsocketProvider extends Observable {
     this.disableBc = disableBc
     this.wsUnsuccessfulReconnects = 0
     this.messageHandlers = messageHandlers.slice()
+    this.headers = headers
     /**
      * @type {boolean}
      */
