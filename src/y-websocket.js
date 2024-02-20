@@ -399,7 +399,7 @@ export class WebsocketProvider extends Observable {
     }
     clearInterval(this._checkInterval)
     this.disconnect()
-    if (typeof process !== 'undefined') {
+    if (env.isNode && typeof process !== 'undefined') {
       process.off('exit', this._exitHandler)
     }
     this.awareness.off('update', this._awarenessUpdateHandler)
