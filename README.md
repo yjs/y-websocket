@@ -2,12 +2,30 @@
 # y-websocket :tophat:
 > WebSocket Provider for Yjs
 
-The Websocket Provider implements a classical client server model. Clients connect to a single endpoint over Websocket. The server distributes awareness information and document updates among clients.
+The Websocket Provider implements a classical client server model. Clients
+connect to a single endpoint over Websocket. The server distributes awareness
+information and document updates among clients.
 
-The Websocket Provider is a solid choice if you want a central source that handles authentication and authorization. Websockets also send header information and cookies, so you can use existing authentication mechanisms with this server.
+This repository contains a simple in-memory backend that can persist to
+databases, but it can't be scaled easily. The
+[y-redis](https://github.com/yjs/y-redis/) repository contains an alternative
+backend that is scalable, provides auth*, and can persist to different backends.
 
-* Supports cross-tab communication. When you open the same document in the same browser, changes on the document are exchanged via cross-tab communication ([Broadcast Channel](https://developer.mozilla.org/en-US/docs/Web/API/Broadcast_Channel_API) and [localStorage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) as fallback).
+The Websocket Provider is a solid choice if you want a central source that
+handles authentication and authorization. Websockets also send header
+information and cookies, so you can use existing authentication mechanisms with
+this server.
+
+* Supports cross-tab communication. When you open the same document in the same
+browser, changes on the document are exchanged via cross-tab communication
+([Broadcast
+Channel](https://developer.mozilla.org/en-US/docs/Web/API/Broadcast_Channel_API)
+and
+[localStorage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage)
+as fallback).
 * Supports exchange of awareness information (e.g. cursors).
+
+
 
 ## Quick Start
 
