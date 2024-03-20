@@ -5,13 +5,14 @@
  */
 const WebSocket = require('ws')
 const http = require('http')
+const number = require('lib0/number')
 const wss = new WebSocket.Server({ noServer: true })
-const setupWSConnection = require('./utils.js').setupWSConnection
+const setupWSConnection = require('./utils.cjs').setupWSConnection
 
 const host = process.env.HOST || 'localhost'
-const port = process.env.PORT || 1234
+const port = number.parseInt(process.env.PORT || '1234')
 
-const server = http.createServer((request, response) => {
+const server = http.createServer((_request, response) => {
   response.writeHead(200, { 'Content-Type': 'text/plain' })
   response.end('okay')
 })

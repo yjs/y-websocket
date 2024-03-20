@@ -5,21 +5,22 @@
   "main": "./dist/y-websocket.cjs",
   "module": "./src/y-websocket.js",
   "types": "./dist/src/y-websocket.d.ts",
+  "type": "module",
   "sideEffects": false,
   "funding": {
     "type": "GitHub Sponsors ❤",
     "url": "https://github.com/sponsors/dmonad"
   },
   "scripts": {
-    "start": "node ./bin/server.js",
+    "start": "node ./bin/server.cjs",
     "dist": "rm -rf dist && rollup -c && tsc",
     "lint": "standard && tsc",
     "test": "npm run lint",
     "preversion": "npm run lint && npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
   },
   "bin": {
-    "y-websocket-server": "./bin/server.js",
-    "y-websocket": "./bin/server.js"
+    "y-websocket-server": "./bin/server.cjs",
+    "y-websocket": "./bin/server.cjs"
   },
   "files": [
     "dist/*",
@@ -28,13 +29,14 @@
   ],
   "exports": {
     "./package.json": "./package.json",
-    "./bin/utils": "./bin/utils.js",
-    "./bin/callback": "./bin/callback.js",
+    "./bin/utils": "./bin/utils.cjs",
+    "./bin/callback": "./bin/callback.cjs",
     ".": {
       "module": "./src/y-websocket.js",
       "import": "./src/y-websocket.js",
       "require": "./dist/y-websocket.cjs",
-      "types": "./dist/src/y-websocket.d.ts"
+      "types": "./dist/src/y-websocket.d.ts",
+      "default": "./dist/y-websocket.js"
     }
   },
   "repository": {
