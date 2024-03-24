@@ -63,8 +63,26 @@ wsProvider.on('status', event => {
 
 The WebSocket provider requires a [`WebSocket`](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket) object to create connection to a server. You can polyfill WebSocket support in Node.js using the [`ws` package](https://www.npmjs.com/package/ws).
 
+- add `"type":"module",` in your package.json (don't forget the coma!)
+
 ```js
-const wsProvider = new WebsocketProvider('ws://localhost:1234', 'my-roomname', doc, { WebSocketPolyfill: require('ws') })
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
+import WebSocket from "ws";
+const doc = new Y.Doc();
+
+const wsProvider = new WebsocketProvider(
+  "ws://localhost:1234",
+  "my-roomname",
+  doc,
+  { WebSocketPolyfill: WebSocket }
+);
+
+wsProvider.on("status", (event) => {
+  // logs "connected" or "disconnected"
+  console.log(event.status);
+});
+
 ```
 
 ## API
