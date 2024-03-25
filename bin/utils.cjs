@@ -42,7 +42,7 @@ if (typeof persistenceDir === 'string') {
         ldb.storeUpdate(docName, update)
       })
     },
-    writeState: async (docName, ydoc) => {}
+    writeState: async (_docName, _ydoc) => {}
   }
 }
 
@@ -83,6 +83,21 @@ const updateHandler = (update, _origin, doc, _tr) => {
   syncProtocol.writeUpdate(encoder, update)
   const message = encoding.toUint8Array(encoder)
   doc.conns.forEach((_, conn) => send(doc, conn, message))
+}
+
+/**
+ * @type {(ydoc: Y.Doc) => Promise<void>}
+ */
+let contentInitializor = _ydoc => Promise.resolve()
+
+/**
+ * This function is called once every time a Yjs document is created. You can
+ * use it to pull data from an external source or initialize content.
+ *
+ * @param {(ydoc: Y.Doc) => Promise<void>} f
+ */
+export const setContentInitializor = (f) => {
+  contentInitializor = f
 }
 
 class WSSharedDoc extends Y.Doc {
@@ -133,6 +148,7 @@ class WSSharedDoc extends Y.Doc {
         { maxWait: CALLBACK_DEBOUNCE_MAXWAIT }
       ))
     }
+    this.whenInitialized = contentInitializor(this)
   }
 }
 
