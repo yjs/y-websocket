@@ -100,7 +100,7 @@ export const setContentInitializor = (f) => {
   contentInitializor = f
 }
 
-class WSSharedDoc extends Y.Doc {
+export class WSSharedDoc extends Y.Doc {
   /**
    * @param {string} name
    */
