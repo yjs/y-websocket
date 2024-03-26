@@ -96,11 +96,11 @@ let contentInitializor = _ydoc => Promise.resolve()
  *
  * @param {(ydoc: Y.Doc) => Promise<void>} f
  */
-export const setContentInitializor = (f) => {
+exports.setContentInitializor = (f) => {
   contentInitializor = f
 }
 
-export class WSSharedDoc extends Y.Doc {
+class WSSharedDoc extends Y.Doc {
   /**
    * @param {string} name
    */
