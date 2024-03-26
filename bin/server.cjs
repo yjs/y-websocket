@@ -20,15 +20,13 @@ const server = http.createServer((_request, response) => {
 wss.on('connection', setupWSConnection)
 
 server.on('upgrade', (request, socket, head) => {
-  // You may check auth of request here..
+  // You may check auth of request here.. Call `wss.HandleUpgrade` *after* you
+  // checked whether the client has access (e.g. by checking cookies, or url
+  // parameters).
   // See https://github.com/websockets/ws#client-authentication
-  /**
-   * @param {any} ws
-   */
-  const handleAuth = ws => {
+  wss.handleUpgrade(request, socket, head, /** @param {any} ws */ ws => {
     wss.emit('connection', ws, request)
-  }
-  wss.handleUpgrade(request, socket, head, handleAuth)
+  })
 })
 
 server.listen(port, host, () => {
