@@ -64,6 +64,7 @@
     "y-protocols": "^1.0.5"
   },
   "devDependencies": {
+    "@types/lodash.debounce": "^4.0.9",
     "@types/node": "^18.15.0",
     "@types/ws": "^8.5.10",
     "rollup": "^3.19.1",

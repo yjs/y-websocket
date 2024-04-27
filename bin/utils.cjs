@@ -142,11 +142,11 @@ class WSSharedDoc extends Y.Doc {
     this.awareness.on('update', awarenessChangeHandler)
     this.on('update', /** @type {any} */ (updateHandler))
     if (isCallbackSet) {
-      this.on('update', debounce(
+      this.on('update', /** @type {any} */ (debounce(
         callbackHandler,
         CALLBACK_DEBOUNCE_WAIT,
         { maxWait: CALLBACK_DEBOUNCE_MAXWAIT }
-      ))
+      )))
     }
     this.whenInitialized = contentInitializor(this)
   }
@@ -233,7 +233,7 @@ const closeConn = (doc, conn) => {
 
 /**
  * @param {WSSharedDoc} doc
- * @param {any} conn
+ * @param {import('ws').WebSocket} conn
  * @param {Uint8Array} m
  */
 const send = (doc, conn, m) => {
@@ -241,7 +241,7 @@ const send = (doc, conn, m) => {
     closeConn(doc, conn)
   }
   try {
-    conn.send(m, /** @param {any} err */ err => { err != null && closeConn(doc, conn) })
+    conn.send(m, {}, err => { err != null && closeConn(doc, conn) })
   } catch (e) {
     closeConn(doc, conn)
   }
@@ -250,11 +250,11 @@ const send = (doc, conn, m) => {
 const pingTimeout = 30000
 
 /**
- * @param {any} conn
- * @param {any} req
+ * @param {import('ws').WebSocket} conn
+ * @param {import('http').IncomingMessage} req
  * @param {any} opts
  */
-exports.setupWSConnection = (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
+exports.setupWSConnection = (conn, req, { docName = (req.url || '').slice(1).split('?')[0], gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
   // get doc, initialize if it does not exist yet
   const doc = getYDoc(docName, gc)
