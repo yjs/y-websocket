@@ -82,7 +82,7 @@ import { WebsocketProvider } from 'y-websocket'
 wsOpts = {
   // Set this to `false` if you want to connect manually using wsProvider.connect()
   connect: true,
-  // Specify a query-string that will be url-encoded and attached to the `serverUrl`
+  // Specify a query-string / url parameters that will be url-encoded and attached to the `serverUrl`
   // I.e. params = { auth: "bearer" } will be transformed to "?auth=bearer"
   params: {}, // Object<string,string>
   // You may polyill the Websocket object (https://developer.mozilla.org/en-US/docs/Web/API/WebSocket).
@@ -106,6 +106,10 @@ wsOpts = {
   <dd>True if this instance is currently communicating to other browser-windows via BroadcastChannel.</dd>
   <b><code>wsProvider.synced: boolean</code></b>
   <dd>True if this instance is currently connected and synced with the server.</dd>
+  <b><code>wsProvider.params : boolean</code></b>
+  <dd>The specified url parameters. This can be safely updated, the new values
+    will be used when a new connction is established. If this contains an
+    auth token, it should be updated regularly.</dd>
   <b><code>wsProvider.disconnect()</code></b>
   <dd>Disconnect from the server and don't try to reconnect.</dd>
   <b><code>wsProvider.connect()</code></b>
