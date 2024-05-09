@@ -245,7 +245,7 @@ export class WebsocketProvider extends Observable {
    * @param {object} opts
    * @param {boolean} [opts.connect]
    * @param {awarenessProtocol.Awareness} [opts.awareness]
-   * @param {Object<string,string>} [opts.params]
+   * @param {Object<string,string>} [opts.params] specify url parameters
    * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
@@ -265,11 +265,15 @@ export class WebsocketProvider extends Observable {
     while (serverUrl[serverUrl.length - 1] === '/') {
       serverUrl = serverUrl.slice(0, serverUrl.length - 1)
     }
-    const encodedParams = url.encodeQueryParams(params)
-    this.maxBackoffTime = maxBackoffTime
+    this.serverUrl = serverUrl
     this.bcChannel = serverUrl + '/' + roomname
-    this.url = serverUrl + '/' + roomname +
-      (encodedParams.length === 0 ? '' : '?' + encodedParams)
+    this.maxBackoffTime = maxBackoffTime
+    /**
+     * The specified url parameters. This can be safely updated. The changed parameters will be used
+     * when a new connection is established.
+     * @type {Object<string,string>}
+     */
+    this.params = params
     this.roomname = roomname
     this.doc = doc
     this._WS = WebSocketPolyfill
@@ -376,6 +380,12 @@ export class WebsocketProvider extends Observable {
     if (connect) {
       this.connect()
     }
+  }
+
+  get url () {
+    const encodedParams = url.encodeQueryParams(this.params)
+    return this.serverUrl + '/' + this.roomname +
+      (encodedParams.length === 0 ? '' : '?' + encodedParams)
   }
 
   /**
