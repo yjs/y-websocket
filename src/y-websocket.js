@@ -129,7 +129,7 @@ const readMessage = (provider, buf, emitSynced) => {
  */
 const setupWS = (provider) => {
   if (provider.shouldConnect && provider.ws === null) {
-    const websocket = new provider._WS(provider.url)
+    const websocket = new provider._WS(provider.url, provider.protocols)
     websocket.binaryType = 'arraybuffer'
     provider.ws = websocket
     provider.wsconnecting = true
@@ -246,6 +246,7 @@ export class WebsocketProvider extends Observable {
    * @param {boolean} [opts.connect]
    * @param {awarenessProtocol.Awareness} [opts.awareness]
    * @param {Object<string,string>} [opts.params] specify url parameters
+   * @param {Array<string>} [opts.protocols] specify websocket protocols
    * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
@@ -255,6 +256,7 @@ export class WebsocketProvider extends Observable {
     connect = true,
     awareness = new awarenessProtocol.Awareness(doc),
     params = {},
+    protocols = [],
     WebSocketPolyfill = WebSocket,
     resyncInterval = -1,
     maxBackoffTime = 2500,
@@ -274,6 +276,7 @@ export class WebsocketProvider extends Observable {
      * @type {Object<string,string>}
      */
     this.params = params
+    this.protocols = protocols
     this.roomname = roomname
     this.doc = doc
     this._WS = WebSocketPolyfill
