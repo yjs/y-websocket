@@ -74,7 +74,7 @@
     "yjs": "^13.5.6"
   },
   "optionalDependencies": {
-    "ws": "^6.2.1",
+    "ws": "^6.2.3",
     "y-leveldb": "^0.1.0"
   }
 }
