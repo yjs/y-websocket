@@ -378,6 +378,14 @@ export class WebsocketProvider extends Observable {
         // no message received in a long time - not even your own awareness
         // updates (which are updated every 15 seconds)
         /** @type {WebSocket} */ (this.ws).close()
+        // Closing a WebSocket instance, especially in browsers will not
+        // cause it to immediately close, instead, it initiates the
+        // closing handshake (https://www.rfc-editor.org/rfc/rfc6455.html#section-1.4)
+        // which will delay firing of 'close' event.
+        // A dedicated 'timeout' status update can be used to detect this state
+        this.emit('status', [{
+          status: 'timeout'
+        }]);
       }
     }, messageReconnectTimeout / 10))
     if (connect) {
