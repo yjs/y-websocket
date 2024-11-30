@@ -45,8 +45,8 @@ messageHandlers[messageSync] = (
   encoding.writeVarString(encoder, docGuid)
   const syncMessageType = syncProtocol.readSyncMessage(
     decoder,
-    encoder,
-    provider.doc,
+    encoder, 
+    doc,
     provider
   )
   if (emitSynced && docGuid === provider.roomname && syncMessageType === syncProtocol.messageYjsSyncStep2 && !provider.synced) {
@@ -424,7 +424,10 @@ export class WebsocketProvider extends Observable {
     if (connect) {
       this.connect()
     }
-
+    function arrayBufferToBase64(update) {
+      const binary = update.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
+      return btoa(binary);
+    }
     /**
      * Listen to sub documents updates
      * @param {String} id identifier of sub documents 
@@ -501,6 +504,11 @@ export class WebsocketProvider extends Observable {
     if (oldState !== state) {
       this._syncedStatus.set(id, state)
       this.emit('subdoc_synced', [id, state])
+      const doc = this.docs.get(id)
+      if (doc) {
+        doc.isSynced = state
+        doc.emit('sync', [state,doc])
+      }
     }
   }
 
