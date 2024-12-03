@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  packages: write
+  contents: read
+
+jobs:  
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 16
+          registry-url: https://npm.pkg.github.com
+          scope: '@illumi-one'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run dist
+
+      - name: Publish to GitHub Packages
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
