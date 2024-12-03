@@ -46,7 +46,7 @@ messageHandlers[messageSync] = (
 
   const syncMessageType = syncProtocol.readSyncMessage(
     decoder,
-    encoder, 
+    encoder,
     doc,
     provider
   )
@@ -67,7 +67,6 @@ messageHandlers[messageQueryAwareness] = (
   _emitSynced,
   _messageType
 ) => {
-  
   const docGuid = decoding.readVarString(decoder)
   const doc = provider.getDoc(docGuid)
   if (!doc) {
@@ -75,7 +74,7 @@ messageHandlers[messageQueryAwareness] = (
     return
   }
   let docAwareness = provider.getAwareness(docGuid)
-  provider.encodeAwareness(encoder,docGuid,docAwareness, Array.from(docAwareness.getStates().keys()))
+  provider.encodeAwareness(encoder, docGuid, docAwareness, Array.from(docAwareness.getStates().keys()))
 }
 
 messageHandlers[messageAwareness] = (
@@ -91,7 +90,7 @@ messageHandlers[messageAwareness] = (
     console.error('doc not found with id: ', docGuid)
     return
   }
-  
+
   awarenessProtocol.applyAwarenessUpdate(
     provider.getAwareness(docGuid),
     decoding.readVarUint8Array(decoder),
@@ -143,8 +142,8 @@ const readMessage = (provider, buf, emitSynced) => {
 }
 
 /**
- * 
- * @param {encoding.Encoder} encoder 
+ *
+ * @param {encoding.Encoder} encoder
  */
 const needSend = (encoder) => {
   const buf = encoding.toUint8Array(encoder)
@@ -184,16 +183,16 @@ const setupWS = (provider) => {
       if (provider.wsconnected) {
         provider.wsconnected = false
         provider.synced = false
-        
+
         for (const [docId, docAwareness] of provider.docsAwareness.entries()) {
           const doc = provider.getDoc(docId)
           // update awareness (all users except local left)
           awarenessProtocol.removeAwarenessStates(
-              docAwareness,
-              Array.from(docAwareness.getStates().keys()).filter((client) =>
-                  client !== doc.clientID
-              ),
-              provider
+            docAwareness,
+            Array.from(docAwareness.getStates().keys()).filter((client) =>
+              client !== doc.clientID
+            ),
+            provider
           )
         }
         provider.emit('status', [{
@@ -228,7 +227,7 @@ const setupWS = (provider) => {
         websocket.send(encoding.toUint8Array(encoder))
       }
 
-      for(const [docId, docAwareness] of provider.docsAwareness) {
+      for (const [docId, docAwareness] of provider.docsAwareness) {
         const doc = provider.getDoc(docId)
         // broadcast local awareness state
         if (docAwareness.getLocalState() !== null) {
@@ -349,8 +348,7 @@ export class WebsocketProvider extends Observable {
     this.docsAwareness = new Map()
     this.docsAwareness.set(this.roomname, awareness)
     this.docsAwarenessUpdateHandlers = new Map()
-    
-    
+
     /**
      * store synced status for sub docs
      */
@@ -415,35 +413,35 @@ export class WebsocketProvider extends Observable {
      * @param {String} docId identifier of sub documents
      * @returns update handler to push awareness to clients
      */
-    this._getSubDocAwarenessHandler = (docId) => 
+    this._getSubDocAwarenessHandler = (docId) =>
       ({ added, updated, removed }, _origin) => {
         const changedClients = added.concat(updated).concat(removed)
         const encoder = encoding.createEncoder()
         const subDocAwareness = this.docsAwareness.get(docId)
-        
+
         this.encodeAwareness(encoder, docId, subDocAwareness, changedClients)
 
         broadcastMessage(this, encoding.toUint8Array(encoder))
       }
-    
+
     this._exitHandler = () => {
       awarenessProtocol.removeAwarenessStates(
         this.awareness,
         [doc.clientID],
         'app closed'
       )
-      //we keep track of all awareness including the main doc in map
-      //this.docsAwareness, the root doc will be removed twice and it is ok 
-      //as removal is idempotent
+      // we keep track of all awareness including the main doc in map
+      // this.docsAwareness, the root doc will be removed twice and it is ok
+      // as removal is idempotent
       for (const [docId, docAwareness] of this.docsAwareness.entries()) {
-          const doc=this.getDoc(docId)
-          awarenessProtocol.removeAwarenessStates(
-              docAwareness,
-              [doc.ClientID],
-              'app closed')
+        const doc = this.getDoc(docId)
+        awarenessProtocol.removeAwarenessStates(
+          docAwareness,
+          [doc.ClientID],
+          'app closed')
       }
     }
-    
+
     if (env.isNode && typeof process !== 'undefined') {
       process.on('exit', this._exitHandler)
     }
@@ -464,8 +462,8 @@ export class WebsocketProvider extends Observable {
     }
     /**
      * Listen to sub documents updates
-     * @param {String} id identifier of sub documents 
-     * @returns 
+     * @param {String} id identifier of sub documents
+     * @returns
      */
     this._getSubDocUpdateHandler = (id) => {
       return (update, origin) => {
@@ -485,16 +483,16 @@ export class WebsocketProvider extends Observable {
       (encodedParams.length === 0 ? '' : '?' + encodedParams)
   }
 
-  encodeAwareness(encoder, docId, awareness, changedClients, states=awareness.states){
+  encodeAwareness (encoder, docId, awareness, changedClients, states = awareness.states) {
     encoding.writeVarUint(encoder, messageAwareness)
-    encoding.writeVarString(encoder,docId)
+    encoding.writeVarString(encoder, docId)
     encoding.writeVarUint8Array(
-        encoder,
-        awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients, states)
+      encoder,
+      awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients, states)
     )
   }
   /**
-   * @param {Y.Doc} subdoc 
+   * @param {Y.Doc} subdoc
    */
   addSubdoc (subdoc) {
     let updateHandler = this._getSubDocUpdateHandler(subdoc.guid)
@@ -507,7 +505,7 @@ export class WebsocketProvider extends Observable {
     this.docsAwareness.set(subdoc.guid, subDocAwareness)
     subDocAwareness.on('update', subDocAwarenessUpdateHandler)
     this.docsAwarenessUpdateHandlers.set(subdoc.guid, subDocAwarenessUpdateHandler)
-    
+
     // invoke sync step1
     const encoder = encoding.createEncoder()
     encoding.writeVarUint(encoder, messageSync)
@@ -517,7 +515,7 @@ export class WebsocketProvider extends Observable {
   }
 
   /**
-   * @param {Y.Doc} subdoc 
+   * @param {Y.Doc} subdoc
    */
   removeSubdoc (subdoc) {
     subdoc.off('update', this.subdocUpdateHandlers.get(subdoc.guid))
@@ -527,8 +525,8 @@ export class WebsocketProvider extends Observable {
 
   /**
    * get doc by id (main doc or sub doc)
-   * @param {String} id 
-   * @returns 
+   * @param {String} id
+   * @returns
    */
   getDoc (id) {
     return this.docs.get(id)
@@ -537,7 +535,6 @@ export class WebsocketProvider extends Observable {
   getAwareness (id) {
     return this.docsAwareness.get(id)
   }
-
 
   /**
    * @type {boolean}
@@ -562,7 +559,7 @@ export class WebsocketProvider extends Observable {
       const doc = this.docs.get(id)
       if (doc) {
         doc.isSynced = state
-        doc.emit('sync', [state,doc])
+        doc.emit('sync', [state, doc])
       }
     }
   }
@@ -602,7 +599,7 @@ export class WebsocketProvider extends Observable {
     encoding.writeVarString(encoderState, this.roomname)
     syncProtocol.writeSyncStep2(encoderState, this.doc)
     bc.publish(this.bcChannel, encoding.toUint8Array(encoderState), this)
-    
+
     // write queryAwareness
     const encoderAwarenessQuery = encoding.createEncoder()
     encoding.writeVarUint(encoderAwarenessQuery, messageQueryAwareness)
@@ -627,7 +624,7 @@ export class WebsocketProvider extends Observable {
   disconnectBc () {
     // broadcast message with local awareness state set to null (indicating disconnect)
     const encoder = encoding.createEncoder()
-    this.encodeAwareness(encoder,this.roomname, this.awareness, [this.doc.clientID], new Map())
+    this.encodeAwareness(encoder, this.roomname, this.awareness, [this.doc.clientID], new Map())
     broadcastMessage(this, encoding.toUint8Array(encoder))
     if (this.bcconnected) {
       bc.unsubscribe(this.bcChannel, this._bcSubscriber)

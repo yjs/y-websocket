@@ -14,7 +14,7 @@
   "scripts": {
     "start": "node ./bin/server.cjs",
     "dist": "rm -rf dist && rollup -c && tsc",
-    "lint": "standard && tsc",
+    "lint": "standard --fix && tsc",
     "test": "npm run lint",
     "preversion": "npm run lint && npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
   },
