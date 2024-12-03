@@ -43,6 +43,7 @@ messageHandlers[messageSync] = (
   }
   encoding.writeVarUint(encoder, messageSync)
   encoding.writeVarString(encoder, docGuid)
+
   const syncMessageType = syncProtocol.readSyncMessage(
     decoder,
     encoder, 
@@ -61,30 +62,38 @@ messageHandlers[messageSync] = (
 
 messageHandlers[messageQueryAwareness] = (
   encoder,
-  _decoder,
-  provider,
-  _emitSynced,
-  _messageType
-) => {
-  encoding.writeVarUint(encoder, messageAwareness)
-  encoding.writeVarUint8Array(
-    encoder,
-    awarenessProtocol.encodeAwarenessUpdate(
-      provider.awareness,
-      Array.from(provider.awareness.getStates().keys())
-    )
-  )
-}
-
-messageHandlers[messageAwareness] = (
-  _encoder,
   decoder,
   provider,
   _emitSynced,
   _messageType
 ) => {
+  
+  const docGuid = decoding.readVarString(decoder)
+  const doc = provider.getDoc(docGuid)
+  if (!doc) {
+    console.error('doc not found with id: ', docGuid)
+    return
+  }
+  let docAwareness = provider.getAwareness(docGuid)
+  provider.encodeAwareness(encoder,docGuid,docAwareness, Array.from(docAwareness.getStates().keys()))
+}
+
+messageHandlers[messageAwareness] = (
+  encoder,
+  decoder,
+  provider,
+  _emitSynced,
+  _messageType
+) => {
+  const docGuid = decoding.readVarString(decoder)
+  const doc = provider.getDoc(docGuid)
+  if (!doc) {
+    console.error('doc not found with id: ', docGuid)
+    return
+  }
+  
   awarenessProtocol.applyAwarenessUpdate(
-    provider.awareness,
+    provider.getAwareness(docGuid),
     decoding.readVarUint8Array(decoder),
     provider
   )
@@ -175,14 +184,18 @@ const setupWS = (provider) => {
       if (provider.wsconnected) {
         provider.wsconnected = false
         provider.synced = false
-        // update awareness (all users except local left)
-        awarenessProtocol.removeAwarenessStates(
-          provider.awareness,
-          Array.from(provider.awareness.getStates().keys()).filter((client) =>
-            client !== provider.doc.clientID
-          ),
-          provider
-        )
+        
+        for (const [docId, docAwareness] of provider.docsAwareness.entries()) {
+          const doc = provider.getDoc(docId)
+          // update awareness (all users except local left)
+          awarenessProtocol.removeAwarenessStates(
+              docAwareness,
+              Array.from(docAwareness.getStates().keys()).filter((client) =>
+                  client !== doc.clientID
+              ),
+              provider
+          )
+        }
         provider.emit('status', [{
           status: 'disconnected'
         }])
@@ -215,17 +228,14 @@ const setupWS = (provider) => {
         websocket.send(encoding.toUint8Array(encoder))
       }
 
-      // broadcast local awareness state
-      if (provider.awareness.getLocalState() !== null) {
-        const encoderAwarenessState = encoding.createEncoder()
-        encoding.writeVarUint(encoderAwarenessState, messageAwareness)
-        encoding.writeVarUint8Array(
-          encoderAwarenessState,
-          awarenessProtocol.encodeAwarenessUpdate(provider.awareness, [
-            provider.doc.clientID
-          ])
-        )
-        websocket.send(encoding.toUint8Array(encoderAwarenessState))
+      for(const [docId, docAwareness] of provider.docsAwareness) {
+        const doc = provider.getDoc(docId)
+        // broadcast local awareness state
+        if (docAwareness.getLocalState() !== null) {
+          const encoderAwarenessState = encoding.createEncoder()
+          provider.encodeAwareness(encoderAwarenessState, docId, docAwareness, [doc.clientID])
+          websocket.send(encoding.toUint8Array(encoderAwarenessState))
+        }
       }
 
       provider.emit('status', [{
@@ -336,12 +346,15 @@ export class WebsocketProvider extends Observable {
     this.docs = new Map()
     this.docs.set(this.roomname, doc)
     this.subdocUpdateHandlers = new Map()
-
+    this.docsAwareness = new Map()
+    this.docsAwareness.set(this.roomname, awareness)
+    this.docsAwarenessUpdateHandlers = new Map()
+    
+    
     /**
      * store synced status for sub docs
      */
     this._syncedStatus = new Map()
-
     /**
      * @type {number}
      */
@@ -352,6 +365,7 @@ export class WebsocketProvider extends Observable {
           // resend sync step 1
           const encoder = encoding.createEncoder()
           encoding.writeVarUint(encoder, messageSync)
+          encoding.writeVarString(encoder, this.roomname)
           syncProtocol.writeSyncStep1(encoder, doc)
           this.ws.send(encoding.toUint8Array(encoder))
         }
@@ -392,20 +406,44 @@ export class WebsocketProvider extends Observable {
     this._awarenessUpdateHandler = ({ added, updated, removed }, _origin) => {
       const changedClients = added.concat(updated).concat(removed)
       const encoder = encoding.createEncoder()
-      encoding.writeVarUint(encoder, messageAwareness)
-      encoding.writeVarUint8Array(
-        encoder,
-        awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients)
-      )
+      this.encodeAwareness(encoder, this.roomname, awareness, changedClients)
       broadcastMessage(this, encoding.toUint8Array(encoder))
     }
+
+    /**
+     * Listen to sub documents awareness updates
+     * @param {String} docId identifier of sub documents
+     * @returns update handler to push awareness to clients
+     */
+    this._getSubDocAwarenessHandler = (docId) => 
+      ({ added, updated, removed }, _origin) => {
+        const changedClients = added.concat(updated).concat(removed)
+        const encoder = encoding.createEncoder()
+        const subDocAwareness = this.docsAwareness.get(docId)
+        
+        this.encodeAwareness(encoder, docId, subDocAwareness, changedClients)
+
+        broadcastMessage(this, encoding.toUint8Array(encoder))
+      }
+    
     this._exitHandler = () => {
       awarenessProtocol.removeAwarenessStates(
         this.awareness,
         [doc.clientID],
         'app closed'
       )
+      //we keep track of all awareness including the main doc in map
+      //this.docsAwareness, the root doc will be removed twice and it is ok 
+      //as removal is idempotent
+      for (const [docId, docAwareness] of this.docsAwareness.entries()) {
+          const doc=this.getDoc(docId)
+          awarenessProtocol.removeAwarenessStates(
+              docAwareness,
+              [doc.ClientID],
+              'app closed')
+      }
     }
+    
     if (env.isNode && typeof process !== 'undefined') {
       process.on('exit', this._exitHandler)
     }
@@ -423,10 +461,6 @@ export class WebsocketProvider extends Observable {
     }, messageReconnectTimeout / 10))
     if (connect) {
       this.connect()
-    }
-    function arrayBufferToBase64(update) {
-      const binary = update.reduce((acc, byte) => acc + String.fromCharCode(byte), '');
-      return btoa(binary);
     }
     /**
      * Listen to sub documents updates
@@ -451,6 +485,14 @@ export class WebsocketProvider extends Observable {
       (encodedParams.length === 0 ? '' : '?' + encodedParams)
   }
 
+  encodeAwareness(encoder, docId, awareness, changedClients, states=awareness.states){
+    encoding.writeVarUint(encoder, messageAwareness)
+    encoding.writeVarString(encoder,docId)
+    encoding.writeVarUint8Array(
+        encoder,
+        awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients, states)
+    )
+  }
   /**
    * @param {Y.Doc} subdoc 
    */
@@ -460,6 +502,12 @@ export class WebsocketProvider extends Observable {
     subdoc.on('update', updateHandler)
     this.subdocUpdateHandlers.set(subdoc.guid, updateHandler)
 
+    const subDocAwareness = new awarenessProtocol.Awareness(subdoc)
+    const subDocAwarenessUpdateHandler = this._getSubDocAwarenessHandler(subdoc.guid)
+    this.docsAwareness.set(subdoc.guid, subDocAwareness)
+    subDocAwareness.on('update', subDocAwarenessUpdateHandler)
+    this.docsAwarenessUpdateHandlers.set(subdoc.guid, subDocAwarenessUpdateHandler)
+    
     // invoke sync step1
     const encoder = encoding.createEncoder()
     encoding.writeVarUint(encoder, messageSync)
@@ -473,6 +521,8 @@ export class WebsocketProvider extends Observable {
    */
   removeSubdoc (subdoc) {
     subdoc.off('update', this.subdocUpdateHandlers.get(subdoc.guid))
+    const awareness = this.docsAwareness.get(subdoc.guid)
+    awareness.off('update', this.docsAwarenessUpdateHandlers.get(subdoc.guid))
   }
 
   /**
@@ -483,6 +533,11 @@ export class WebsocketProvider extends Observable {
   getDoc (id) {
     return this.docs.get(id)
   }
+
+  getAwareness (id) {
+    return this.docsAwareness.get(id)
+  }
+
 
   /**
    * @type {boolean}
@@ -538,16 +593,20 @@ export class WebsocketProvider extends Observable {
     // write sync step 1
     const encoderSync = encoding.createEncoder()
     encoding.writeVarUint(encoderSync, messageSync)
+    encoding.writeVarString(encoderSync, this.roomname)
     syncProtocol.writeSyncStep1(encoderSync, this.doc)
     bc.publish(this.bcChannel, encoding.toUint8Array(encoderSync), this)
     // broadcast local state
     const encoderState = encoding.createEncoder()
     encoding.writeVarUint(encoderState, messageSync)
+    encoding.writeVarString(encoderState, this.roomname)
     syncProtocol.writeSyncStep2(encoderState, this.doc)
     bc.publish(this.bcChannel, encoding.toUint8Array(encoderState), this)
+    
     // write queryAwareness
     const encoderAwarenessQuery = encoding.createEncoder()
     encoding.writeVarUint(encoderAwarenessQuery, messageQueryAwareness)
+    encoding.writeVarString(encoderAwarenessQuery, this.roomname)
     bc.publish(
       this.bcChannel,
       encoding.toUint8Array(encoderAwarenessQuery),
@@ -555,13 +614,9 @@ export class WebsocketProvider extends Observable {
     )
     // broadcast local awareness state
     const encoderAwarenessState = encoding.createEncoder()
-    encoding.writeVarUint(encoderAwarenessState, messageAwareness)
-    encoding.writeVarUint8Array(
-      encoderAwarenessState,
-      awarenessProtocol.encodeAwarenessUpdate(this.awareness, [
-        this.doc.clientID
-      ])
-    )
+
+    this.encodeAwareness(encoderAwarenessState, this.roomname, this.awareness, [this.doc.clientID])
+
     bc.publish(
       this.bcChannel,
       encoding.toUint8Array(encoderAwarenessState),
@@ -572,13 +627,7 @@ export class WebsocketProvider extends Observable {
   disconnectBc () {
     // broadcast message with local awareness state set to null (indicating disconnect)
     const encoder = encoding.createEncoder()
-    encoding.writeVarUint(encoder, messageAwareness)
-    encoding.writeVarUint8Array(
-      encoder,
-      awarenessProtocol.encodeAwarenessUpdate(this.awareness, [
-        this.doc.clientID
-      ], new Map())
-    )
+    this.encodeAwareness(encoder,this.roomname, this.awareness, [this.doc.clientID], new Map())
     broadcastMessage(this, encoding.toUint8Array(encoder))
     if (this.bcconnected) {
       bc.unsubscribe(this.bcChannel, this._bcSubscriber)
