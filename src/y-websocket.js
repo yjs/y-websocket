@@ -25,8 +25,10 @@ export const messageAuth = 2
 
 export const YWebsocketLoggerName = "YWebsocketProviderLogger"
 export const YWebsocketAwarenessLoggerName = "YWebsocketProviderAwarenessLogger"
+export const YWebsocketSyncLoggerName = "YWebsocketProviderSyncLogger"
 const logger = log.getLogger(YWebsocketLoggerName)
 const alogger = log.getLogger(YWebsocketAwarenessLoggerName)
+const slogger = log.getLogger(YWebsocketSyncLoggerName)
 /**
  *                       encoder,          decoder,          provider,          emitSynced, messageType
  * @type {Array<function(encoding.Encoder, decoding.Decoder, WebsocketProvider, boolean,    number):void>}
@@ -43,7 +45,7 @@ messageHandlers[messageSync] = (encoder, decoder, provider, emitSynced, _message
     encoding.writeVarUint(encoder, messageSync)
     encoding.writeVarString(encoder, docGuid)
 
-    log.debug("syncing doc: ", docGuid)
+    logger.debug(`syncing doc: ${docGuid}, decoder size ${decoder.arr.length}, position ${decoder.pos}`)
     const syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, doc, provider)
     if (
         emitSynced &&
@@ -132,13 +134,16 @@ const readMessage = (provider, buf, emitSynced) => {
  * @param {encoding.Encoder} encoder
  */
 const needSend = (encoder) => {
-    alogger.debug("needSend start")
+    // alogger.debug("needSend start")
     const buf = encoding.toUint8Array(encoder)
     const decoder = decoding.createDecoder(buf)
-    decoding.readVarUint(decoder)
-    decoding.readVarString(decoder)
-    alogger.debug("needSend end")
-    return decoding.hasContent(decoder)
+    const messageType = decoding.readVarUint(decoder)
+    const docId = decoding.readVarString(decoder)
+    const needSend = decoding.hasContent(decoder)
+    logger.debug(
+        `needSend: ${needSend}, type: ${messageType}, ${docId}, decoder size ${decoder.arr.length}, position ${decoder.pos}`,
+    )
+    return needSend
 }
 
 /**
@@ -208,13 +213,13 @@ const setupWS = (provider) => {
 
             // always send sync step 1 when connected (main doc & sub docs)
             for (const [k, doc] of provider.docs) {
-                logger.debug("sending sync step 1 for doc: ", k)
+                slogger.debug("sending sync step 1 for doc: ", k)
                 const encoder = encoding.createEncoder()
                 encoding.writeVarUint(encoder, messageSync)
                 encoding.writeVarString(encoder, k)
                 syncProtocol.writeSyncStep1(encoder, doc)
                 websocket.send(encoding.toUint8Array(encoder))
-                logger.debug("sent sync step 1 for doc: ", k)
+                slogger.debug("sent sync step 1 for doc: ", k)
             }
 
             for (const [docId, docAwareness] of provider.docsAwareness) {
@@ -588,8 +593,10 @@ export class WebsocketProvider extends Observable {
         encoding.writeVarUint(encoderSync, messageSync)
         encoding.writeVarString(encoderSync, this.roomname)
         syncProtocol.writeSyncStep1(encoderSync, this.doc)
-
-        bc.publish(this.bcChannel, encoding.toUint8Array(encoderSync), this)
+        logger.debug(`Connecting broadcast to ${this.url}, before publishing sync step1`)
+        let data = encoding.toUint8Array(encoderSync)
+        logger.debug(`Connecting broadcast to ${this.url}, after got data for sync step1:`, data)
+        bc.publish(this.bcChannel, data, this)
         logger.debug(`Connecting broadcast to ${this.url}, published sync step1`)
 
         // broadcast local state
