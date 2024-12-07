@@ -146,7 +146,7 @@ const needSend = (encoder) => {
  */
 const setupWS = (provider) => {
     if (provider.shouldConnect && provider.ws === null) {
-        logger.debug("Setting up WS")
+        logger.debug("Setting up WS", provider.url)
         const websocket = new provider._WS(provider.url, provider.protocols)
         websocket.binaryType = "arraybuffer"
         provider.ws = websocket
@@ -240,6 +240,7 @@ const setupWS = (provider) => {
                 status: "connecting",
             },
         ])
+        logger.debug(`WebSocket setup to {} done`, provider.url)
     }
 }
 
@@ -587,25 +588,32 @@ export class WebsocketProvider extends Observable {
         encoding.writeVarUint(encoderSync, messageSync)
         encoding.writeVarString(encoderSync, this.roomname)
         syncProtocol.writeSyncStep1(encoderSync, this.doc)
+
         bc.publish(this.bcChannel, encoding.toUint8Array(encoderSync), this)
+        logger.debug(`Connecting broadcast to ${this.url}, published sync step1`)
+
         // broadcast local state
         const encoderState = encoding.createEncoder()
         encoding.writeVarUint(encoderState, messageSync)
         encoding.writeVarString(encoderState, this.roomname)
         syncProtocol.writeSyncStep2(encoderState, this.doc)
         bc.publish(this.bcChannel, encoding.toUint8Array(encoderState), this)
+        logger.debug(`Connecting broadcast to ${this.url}, published sync step2`)
 
         // write queryAwareness
         const encoderAwarenessQuery = encoding.createEncoder()
         encoding.writeVarUint(encoderAwarenessQuery, messageQueryAwareness)
         encoding.writeVarString(encoderAwarenessQuery, this.roomname)
         bc.publish(this.bcChannel, encoding.toUint8Array(encoderAwarenessQuery), this)
+        logger.debug(`Connecting broadcast to ${this.url}, published query awareness`)
+
         // broadcast local awareness state
         const encoderAwarenessState = encoding.createEncoder()
-
         this.encodeAwareness(encoderAwarenessState, this.roomname, this.awareness, [this.doc.clientID])
-
         bc.publish(this.bcChannel, encoding.toUint8Array(encoderAwarenessState), this)
+        logger.debug(`Connecting broadcast to ${this.url}, published awareness`)
+
+        logger.debug(`Connected broadcast to ${this.url}`)
     }
 
     disconnectBc() {
