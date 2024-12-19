@@ -125,6 +125,48 @@ const readMessage = (provider, buf, emitSynced) => {
 }
 
 /**
+ * Outsource this function so that a new websocket connection is created immediately.
+ * I suspect that the `ws.onclose` event is not always fired if there are network issues.
+ *
+ * @param {WebsocketProvider} provider
+ * @param {WebSocket} ws
+ */
+const closeWebsocketConnection = (provider, ws) => {
+  if (ws === provider.ws) {
+    provider.ws = null
+    ws.close()
+    provider.wsconnecting = false
+    if (provider.wsconnected) {
+      provider.wsconnected = false
+      provider.synced = false
+      // update awareness (all users except local left)
+      awarenessProtocol.removeAwarenessStates(
+        provider.awareness,
+        Array.from(provider.awareness.getStates().keys()).filter((client) =>
+          client !== provider.doc.clientID
+        ),
+        provider
+      )
+      provider.emit('status', [{
+        status: 'disconnected'
+      }])
+    } else {
+      provider.wsUnsuccessfulReconnects++
+    }
+    // Start with no reconnect timeout and increase timeout by
+    // using exponential backoff starting with 100ms
+    setTimeout(
+      setupWS,
+      math.min(
+        math.pow(2, provider.wsUnsuccessfulReconnects) * 100,
+        provider.maxBackoffTime
+      ),
+      provider
+    )
+  }
+}
+
+/**
  * @param {WebsocketProvider} provider
  */
 const setupWS = (provider) => {
@@ -148,35 +190,7 @@ const setupWS = (provider) => {
     }
     websocket.onclose = (event) => {
       provider.emit('connection-close', [event, provider])
-      provider.ws = null
-      provider.wsconnecting = false
-      if (provider.wsconnected) {
-        provider.wsconnected = false
-        provider.synced = false
-        // update awareness (all users except local left)
-        awarenessProtocol.removeAwarenessStates(
-          provider.awareness,
-          Array.from(provider.awareness.getStates().keys()).filter((client) =>
-            client !== provider.doc.clientID
-          ),
-          provider
-        )
-        provider.emit('status', [{
-          status: 'disconnected'
-        }])
-      } else {
-        provider.wsUnsuccessfulReconnects++
-      }
-      // Start with no reconnect timeout and increase timeout by
-      // using exponential backoff starting with 100ms
-      setTimeout(
-        setupWS,
-        math.min(
-          math.pow(2, provider.wsUnsuccessfulReconnects) * 100,
-          provider.maxBackoffTime
-        ),
-        provider
-      )
+      closeWebsocketConnection(provider, websocket)
     }
     websocket.onopen = () => {
       provider.wsLastMessageReceived = time.getUnixTime()
@@ -377,7 +391,7 @@ export class WebsocketProvider extends Observable {
       ) {
         // no message received in a long time - not even your own awareness
         // updates (which are updated every 15 seconds)
-        /** @type {WebSocket} */ (this.ws).close()
+        closeWebsocketConnection(this, /** @type {WebSocket} */ (this.ws))
       }
     }, messageReconnectTimeout / 10))
     if (connect) {
@@ -484,7 +498,7 @@ export class WebsocketProvider extends Observable {
     this.shouldConnect = false
     this.disconnectBc()
     if (this.ws !== null) {
-      this.ws.close()
+      closeWebsocketConnection(this, this.ws)
     }
   }
 
