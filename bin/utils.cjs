@@ -26,7 +26,7 @@ const persistenceDir = process.env.YPERSISTENCE
  * @type {{bindState: function(string,WSSharedDoc):void, writeState:function(string,WSSharedDoc):Promise<any>, provider: any}|null}
  */
 let persistence = null
-if (typeof persistenceDir === 'string') {
+if (typeof persistenceDir === 'string' && persistenceDir.length > 0) {
   console.info('Persisting documents to "' + persistenceDir + '"')
   // @ts-ignore
   const LeveldbPersistence = require('y-leveldb').LeveldbPersistence
@@ -220,12 +220,14 @@ const closeConn = (doc, conn) => {
     const controlledIds = doc.conns.get(conn)
     doc.conns.delete(conn)
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
-    if (doc.conns.size === 0 && persistence !== null) {
-      // if persisted, we store state and destroy ydocument
-      persistence.writeState(doc.name, doc).then(() => {
+    if (doc.conns.size === 0 && typeof persistenceDir === 'string') {
+      (persistence
+        ? persistence.writeState(doc.name, doc)
+        : Promise.resolve()
+      ).then(() => {
         doc.destroy()
+        docs.delete(doc.name)
       })
-      docs.delete(doc.name)
     }
   }
   conn.close()
