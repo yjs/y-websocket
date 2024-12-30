@@ -143,7 +143,7 @@ Persist document updates in a LevelDB database.
 See [LevelDB Persistence](https://github.com/yjs/y-leveldb) for more info.
 
 ```sh
-HOST=localhost PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/y-websocket/bin/server.js
+HOST=localhost PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/y-websocket/bin/server.cjs
 ```
 
 ### Websocket Server with HTTP callback
