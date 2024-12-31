@@ -73,11 +73,11 @@
     "yjs": "^13.5.0"
   },
   "peerDependencies": {
-    "yjs": "^13.5.6"
+    "yjs": "^13.5.6",
+    "y-leveldb": "^0.1.0"
   },
   "optionalDependencies": {
-    "ws": "^6.2.1",
-    "y-leveldb": "^0.1.0"
+    "ws": "^6.2.1"
   },
   "engines": {
     "npm": ">=8.0.0",
