@@ -142,6 +142,8 @@ Persist document updates in a LevelDB database.
 
 See [LevelDB Persistence](https://github.com/yjs/y-leveldb) for more info.
 
+You must have `y-leveldb` installed before running this command, which you could do with `npm i y-leveldb -g`.
+
 ```sh
 HOST=localhost PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/y-websocket/bin/server.cjs
 ```
