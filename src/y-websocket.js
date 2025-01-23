@@ -278,7 +278,7 @@ export class WebsocketProvider extends ObservableV2 {
     disableBc = false
   } = {}) {
     super()
-    // ensure that url is always ends with /
+    // ensure that serverUrl does not end with /
     while (serverUrl[serverUrl.length - 1] === '/') {
       serverUrl = serverUrl.slice(0, serverUrl.length - 1)
     }
