@@ -215,7 +215,7 @@ exports.messageListener = (conn, doc, message) => {
 let messageListener = exports.messageListener;
 
 /**
- * @param {(conn: any, doc: Y.Doc, message: any) => void} f
+ * @param {(conn: any, doc: Y.Doc, message: ArrayBuffer) => void} f
  */
 exports.setMessageListener = (f) => {
   messageListener = f;
@@ -250,7 +250,7 @@ const closeConn = (doc, conn) => {
  * @param {import('ws').WebSocket} conn
  * @param {Uint8Array} m
  */
-const send = (doc, conn, m) => {
+exports.send = (doc, conn, m) => {
   if (conn.readyState !== wsReadyStateConnecting && conn.readyState !== wsReadyStateOpen) {
     closeConn(doc, conn)
   }
@@ -266,7 +266,14 @@ const send = (doc, conn, m) => {
  * @param {import('ws').WebSocket} conn
  * @param {Uint8Array} m
  */
-exports.send=send;
+let send = exports.send;
+
+/**
+ * @param {(doc: WSSharedDoc, conn: WebSocket, m: Uint8Array) => void} f
+ */
+exports.setSend = (f) => {
+  send = f;
+}
 
 const pingTimeout = 30000
 
