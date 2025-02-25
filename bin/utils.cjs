@@ -176,12 +176,12 @@ exports.getYDoc = getYDoc
 /**
  * @param {any} conn
  * @param {WSSharedDoc} doc
- * @param {Uint8Array} message
+ * @param {ArrayBuffer} message
  */
-const messageListener = (conn, doc, message) => {
+exports.messageListener = (conn, doc, message) => {
   try {
     const encoder = encoding.createEncoder()
-    const decoder = decoding.createDecoder(message)
+    const decoder = decoding.createDecoder(new Uint8Array(message))
     const messageType = decoding.readVarUint(decoder)
     switch (messageType) {
       case messageSync:
@@ -205,6 +205,20 @@ const messageListener = (conn, doc, message) => {
     // @ts-ignore
     doc.emit('error', [err])
   }
+}
+
+/**
+ * @param {any} conn
+ * @param {WSSharedDoc} doc
+ * @param {ArrayBuffer} message
+ */
+let messageListener = exports.messageListener;
+
+/**
+ * @param {(conn: any, doc: Y.Doc, message: any) => void} f
+ */
+exports.setMessageListener = (f) => {
+  messageListener = f;
 }
 
 /**
@@ -247,6 +261,13 @@ const send = (doc, conn, m) => {
   }
 }
 
+/**
+ * @param {WSSharedDoc} doc
+ * @param {import('ws').WebSocket} conn
+ * @param {Uint8Array} m
+ */
+exports.send=send;
+
 const pingTimeout = 30000
 
 /**
@@ -260,7 +281,7 @@ exports.setupWSConnection = (conn, req, { docName = (req.url || '').slice(1).spl
   const doc = getYDoc(docName, gc)
   doc.conns.set(conn, new Set())
   // listen and reply to events
-  conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
+  conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, message))
 
   // Check if connection is still alive
   let pongReceived = true
