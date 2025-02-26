@@ -77,12 +77,27 @@ const messageAwareness = 1
  * @param {WSSharedDoc} doc
  * @param {any} _tr
  */
-const updateHandler = (update, _origin, doc, _tr) => {
+exports.updateHandler = (update, _origin, doc, _tr) => {
   const encoder = encoding.createEncoder()
   encoding.writeVarUint(encoder, messageSync)
   syncProtocol.writeUpdate(encoder, update)
   const message = encoding.toUint8Array(encoder)
   doc.conns.forEach((_, conn) => send(doc, conn, message))
+}
+
+/**
+ * @param {Uint8Array} update
+ * @param {any} _origin
+ * @param {WSSharedDoc} doc
+ * @param {any} _tr
+ */
+let updateHandler = exports.updateHandler;
+
+/**
+ * @param {(update: Uint8Array, _origin: any, doc: WSSharedDoc, _tr: any) => Promise<void>} f
+ */
+exports.setUpdateHandler = (f) => {
+  updateHandler = f;
 }
 
 /**
@@ -176,12 +191,12 @@ exports.getYDoc = getYDoc
 /**
  * @param {any} conn
  * @param {WSSharedDoc} doc
- * @param {Uint8Array} message
+ * @param {ArrayBuffer} message
  */
-const messageListener = (conn, doc, message) => {
+exports.messageListener = (conn, doc, message) => {
   try {
     const encoder = encoding.createEncoder()
-    const decoder = decoding.createDecoder(message)
+    const decoder = decoding.createDecoder(new Uint8Array(message))
     const messageType = decoding.readVarUint(decoder)
     switch (messageType) {
       case messageSync:
@@ -205,6 +220,20 @@ const messageListener = (conn, doc, message) => {
     // @ts-ignore
     doc.emit('error', [err])
   }
+}
+
+/**
+ * @param {any} conn
+ * @param {WSSharedDoc} doc
+ * @param {ArrayBuffer} message
+ */
+let messageListener = exports.messageListener;
+
+/**
+ * @param {(conn: any, doc: Y.Doc, message: ArrayBuffer) => void} f
+ */
+exports.setMessageListener = (f) => {
+  messageListener = f;
 }
 
 /**
@@ -236,7 +265,7 @@ const closeConn = (doc, conn) => {
  * @param {import('ws').WebSocket} conn
  * @param {Uint8Array} m
  */
-const send = (doc, conn, m) => {
+exports.send = (doc, conn, m) => {
   if (conn.readyState !== wsReadyStateConnecting && conn.readyState !== wsReadyStateOpen) {
     closeConn(doc, conn)
   }
@@ -245,6 +274,20 @@ const send = (doc, conn, m) => {
   } catch (e) {
     closeConn(doc, conn)
   }
+}
+
+/**
+ * @param {WSSharedDoc} doc
+ * @param {import('ws').WebSocket} conn
+ * @param {Uint8Array} m
+ */
+let send = exports.send;
+
+/**
+ * @param {(doc: WSSharedDoc, conn: WebSocket, m: Uint8Array) => void} f
+ */
+exports.setSend = (f) => {
+  send = f;
 }
 
 const pingTimeout = 30000
@@ -260,7 +303,7 @@ exports.setupWSConnection = (conn, req, { docName = (req.url || '').slice(1).spl
   const doc = getYDoc(docName, gc)
   doc.conns.set(conn, new Set())
   // listen and reply to events
-  conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, new Uint8Array(message)))
+  conn.on('message', /** @param {ArrayBuffer} message */ message => messageListener(conn, doc, message))
 
   // Check if connection is still alive
   let pongReceived = true
