@@ -77,12 +77,27 @@ const messageAwareness = 1
  * @param {WSSharedDoc} doc
  * @param {any} _tr
  */
-const updateHandler = (update, _origin, doc, _tr) => {
+exports.updateHandler = (update, _origin, doc, _tr) => {
   const encoder = encoding.createEncoder()
   encoding.writeVarUint(encoder, messageSync)
   syncProtocol.writeUpdate(encoder, update)
   const message = encoding.toUint8Array(encoder)
   doc.conns.forEach((_, conn) => send(doc, conn, message))
+}
+
+/**
+ * @param {Uint8Array} update
+ * @param {any} _origin
+ * @param {WSSharedDoc} doc
+ * @param {any} _tr
+ */
+let updateHandler = exports.updateHandler;
+
+/**
+ * @param {(update: Uint8Array, _origin: any, doc: WSSharedDoc, _tr: any) => Promise<void>} f
+ */
+exports.setUpdateHandler = (f) => {
+  updateHandler = f;
 }
 
 /**
