@@ -262,6 +262,12 @@ const closeConn = (doc, conn) => {
 
 /**
  * @param {WSSharedDoc} doc
+ * @param {any} conn
+ */
+exports.closeConn = closeConn;
+
+/**
+ * @param {WSSharedDoc} doc
  * @param {import('ws').WebSocket} conn
  * @param {Uint8Array} m
  */
