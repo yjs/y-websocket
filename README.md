@@ -52,7 +52,7 @@ forkable repository.
 Install and start y-websocket-server:
 
 ```sh
-npm install @y/y-websocket-server
+npm install @y/websocket-server
 HOST=localhost PORT=1234 npx y-websocket
 ```
 
