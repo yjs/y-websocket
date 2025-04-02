@@ -58,5 +58,5 @@
     // "emitDecoratorMetadata": true,         /* Enables experimental support for emitting type metadata for decorators. */
     // "maxNodeModuleJsDepth": 5
   },
-  "include": ["./src/y-websocket.js", "./bin/**/*"]
+  "include": ["./src/**/*"]
 }
