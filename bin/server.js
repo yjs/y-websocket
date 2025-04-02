@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-const WebSocket = require('ws')
-const http = require('http')
-const number = require('lib0/number')
-const wss = new WebSocket.Server({ noServer: true })
-const setupWSConnection = require('./utils.cjs').setupWSConnection
+import WebSocket from 'ws'
+import http from 'http'
+import * as number from 'lib0/number'
+import { setupWSConnection } from './utils.js'
 
+const wss = new WebSocket.Server({ noServer: true })
 const host = process.env.HOST || 'localhost'
 const port = number.parseInt(process.env.PORT || '1234')
 

@@ -1,18 +1,18 @@
-const http = require('http')
-const number = require('lib0/number')
+import http from 'http'
+import * as number from 'lib0/number'
 
 const CALLBACK_URL = process.env.CALLBACK_URL ? new URL(process.env.CALLBACK_URL) : null
 const CALLBACK_TIMEOUT = number.parseInt(process.env.CALLBACK_TIMEOUT || '5000')
 const CALLBACK_OBJECTS = process.env.CALLBACK_OBJECTS ? JSON.parse(process.env.CALLBACK_OBJECTS) : {}
 
-exports.isCallbackSet = !!CALLBACK_URL
+export const isCallbackSet = !!CALLBACK_URL
 
 /**
  * @param {Uint8Array} update
  * @param {any} origin
- * @param {import('./utils.cjs').WSSharedDoc} doc
+ * @param {import('./utils.js').WSSharedDoc} doc
  */
-exports.callbackHandler = (update, origin, doc) => {
+export const callbackHandler = (update, origin, doc) => {
   const room = doc.name
   const dataToSend = {
     room,
@@ -63,7 +63,7 @@ const callbackRequest = (url, timeout, data) => {
 /**
  * @param {string} objName
  * @param {string} objType
- * @param {import('./utils.cjs').WSSharedDoc} doc
+ * @param {import('./utils.js').WSSharedDoc} doc
  */
 const getContent = (objName, objType, doc) => {
   switch (objType) {
