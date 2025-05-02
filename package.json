@@ -14,8 +14,10 @@
   "scripts": {
     "dist": "rm -rf dist && rollup -c && tsc",
     "lint": "standard && tsc",
+    "lint-fix": "standard --fix",
     "test": "npm run lint",
-    "preversion": "npm run lint && npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
+    "preversion": "npm run lint && npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs",
+    "prepare": "npm run dist"
   },
   "files": [
     "dist/*",
