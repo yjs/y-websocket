@@ -267,7 +267,7 @@ const broadcastMessage = (provider, buf) => {
 export class WebsocketProvider extends ObservableV2 {
   /**
    * @param {string} serverUrl
-   * @param {string} roomname
+   * @param {string} roomName
    * @param {Y.Doc} doc
    * @param {object} opts
    * @param {boolean} [opts.connect]
@@ -282,7 +282,7 @@ export class WebsocketProvider extends ObservableV2 {
    */
   constructor(
     serverUrl,
-    roomname,
+    roomName,
     doc,
     {
       connect = true,
@@ -302,7 +302,7 @@ export class WebsocketProvider extends ObservableV2 {
       serverUrl = serverUrl.slice(0, serverUrl.length - 1);
     }
     this.serverUrl = serverUrl;
-    this.bcChannel = serverUrl + "/" + roomname;
+    this.bcChannel = serverUrl + "/" + roomName;
     this.maxBackoffTime = maxBackoffTime;
     /**
      * The specified url parameters. This can be safely updated. The changed parameters will be used
@@ -311,7 +311,7 @@ export class WebsocketProvider extends ObservableV2 {
      */
     this.params = params;
     this.protocols = protocols;
-    this.roomname = roomname;
+    this.roomname = roomName;
     this.doc = doc;
     this._WS = WebSocketPolyfill;
     this.awareness = awareness;
