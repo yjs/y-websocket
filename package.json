@@ -1,5 +1,5 @@
 {
-  "name": "@y/websocket",
+  "name": "@adobe/y-websocket",
   "version": "4.0.0-1",
   "description": "Websockets provider for Yjs",
   "main": "./dist/y-websocket.cjs",
