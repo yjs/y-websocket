@@ -16,6 +16,7 @@ import { ObservableV2 } from 'lib0/observable'
 import * as math from 'lib0/math'
 import * as url from 'lib0/url'
 import * as env from 'lib0/environment'
+import { toBase64, fromBase64 } from 'lib0/buffer'
 
 export const messageSync = 0
 export const messageQueryAwareness = 3
@@ -179,12 +180,13 @@ const setupWS = (provider) => {
     provider.wsconnecting = true
     provider.wsconnected = false
     provider.synced = false
+    const { txEncode, txDecode } = provider
 
     websocket.onmessage = (event) => {
       provider.wsLastMessageReceived = time.getUnixTime()
-      const encoder = readMessage(provider, new Uint8Array(event.data), true)
+      const encoder = readMessage(provider, txDecode(event.data), true)
       if (encoding.length(encoder) > 1) {
-        websocket.send(encoding.toUint8Array(encoder))
+        websocket.send(txEncode(encoding.toUint8Array(encoder)))
       }
     }
     websocket.onerror = (event) => {
@@ -205,7 +207,7 @@ const setupWS = (provider) => {
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.writeSyncStep1(encoder, provider.doc)
-      websocket.send(encoding.toUint8Array(encoder))
+      websocket.send(txEncode(encoding.toUint8Array(encoder)))
       // broadcast local awareness state
       if (provider.awareness.getLocalState() !== null) {
         const encoderAwarenessState = encoding.createEncoder()
@@ -216,7 +218,7 @@ const setupWS = (provider) => {
             provider.doc.clientID
           ])
         )
-        websocket.send(encoding.toUint8Array(encoderAwarenessState))
+        websocket.send(txEncode(encoding.toUint8Array(encoderAwarenessState)))
       }
     }
     provider.emit('status', [{
@@ -227,12 +229,12 @@ const setupWS = (provider) => {
 
 /**
  * @param {WebsocketProvider} provider
- * @param {ArrayBuffer} buf
+ * @param {Uint8Array} buf
  */
 const broadcastMessage = (provider, buf) => {
   const ws = provider.ws
   if (provider.wsconnected && ws && ws.readyState === ws.OPEN) {
-    ws.send(buf)
+    ws.send(provider.txEncode(buf))
   }
   if (provider.bcconnected) {
     bc.publish(provider.bcChannel, buf, provider)
@@ -266,6 +268,7 @@ export class WebsocketProvider extends ObservableV2 {
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
    * @param {boolean} [opts.disableBc] Disable cross-tab BroadcastChannel communication
+   * @param {boolean} [opts.useBase64] Enable base64 transport encoding and decoding
    */
   constructor (serverUrl, roomname, doc, {
     connect = true,
@@ -275,7 +278,8 @@ export class WebsocketProvider extends ObservableV2 {
     WebSocketPolyfill = WebSocket,
     resyncInterval = -1,
     maxBackoffTime = 2500,
-    disableBc = false
+    disableBc = false,
+    useBase64 = false
   } = {}) {
     super()
     // ensure that serverUrl does not end with /
@@ -302,6 +306,14 @@ export class WebsocketProvider extends ObservableV2 {
     this.disableBc = disableBc
     this.wsUnsuccessfulReconnects = 0
     this.messageHandlers = messageHandlers.slice()
+    this.useBase64 = useBase64
+    this.txDecode = useBase64
+      ? fromBase64
+      : (data) => new Uint8Array(data)
+    this.txEncode = useBase64
+      ? toBase64
+      : (data) => data
+
     /**
      * @type {boolean}
      */
@@ -328,7 +340,7 @@ export class WebsocketProvider extends ObservableV2 {
           const encoder = encoding.createEncoder()
           encoding.writeVarUint(encoder, messageSync)
           syncProtocol.writeSyncStep1(encoder, doc)
-          this.ws.send(encoding.toUint8Array(encoder))
+          this.ws.send(this.txEncode(encoding.toUint8Array(encoder)))
         }
       }, resyncInterval))
     }
@@ -388,7 +400,7 @@ export class WebsocketProvider extends ObservableV2 {
       if (
         this.wsconnected &&
         messageReconnectTimeout <
-          time.getUnixTime() - this.wsLastMessageReceived
+        time.getUnixTime() - this.wsLastMessageReceived
       ) {
         // no message received in a long time - not even your own awareness
         // updates (which are updated every 15 seconds)
