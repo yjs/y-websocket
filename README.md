@@ -137,8 +137,6 @@ wsOpts = {
   <dd>Fires when the underlying websocket connection closes with an error. It forwards the websocket event to this event handler.</dd>
 </dl>
 
-Here’s a section you can add to your `README.md` to explain the `useBase64` feature:
-
 ### Base64 Transport Encoding
 
 Some WebSocket servers, such as AWS WebSocket APIs, do not support binary data. To enable compatibility, you can set the `useBase64` option in the constructor options. When enabled, all document updates and awareness information are encoded as base64 strings instead of binary.
