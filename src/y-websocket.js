@@ -432,6 +432,7 @@ export class WebsocketProvider extends ObservableV2 {
       process.off('exit', this._exitHandler)
     }
     this.awareness.off('update', this._awarenessUpdateHandler)
+    this.awareness.destroy()
     this.doc.off('update', this._updateHandler)
     super.destroy()
   }
