@@ -59,10 +59,10 @@
     "rollup": "^4.43.0",
     "standard": "^17.1.2",
     "typescript": "^5.8.3",
-    "yjs": "^14.0.0-6"
+    "yjs": "^13.0.0"
   },
   "peerDependencies": {
-    "yjs": "^14.0.0-6"
+    "yjs": "^13.0.0"
   },
   "engines": {
     "npm": ">=8.0.0",
