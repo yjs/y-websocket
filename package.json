@@ -29,7 +29,8 @@
       "require": "./dist/y-websocket.cjs",
       "types": "./dist/src/y-websocket.d.ts",
       "default": "./src/y-websocket.js"
-    }
+    },
+    "./adapters": "./src/adapters/index.js"
   },
   "repository": {
     "type": "git",
