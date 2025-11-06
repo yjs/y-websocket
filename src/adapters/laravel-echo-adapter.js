@@ -37,15 +37,13 @@ export class LaravelEchoAdapter extends BaseAdapter {
    * @param {any} echo - Laravel Echo instance
    * @param {string} channelName - Presence channel name (e.g., 'document.123')
    * @param {object} [options] - Additional options
-   * @param {string} [options.messageEvent] - Event name for messages (default: 'yjs-message')
-   * @param {string} [options.awarenessEvent] - Event name for awareness updates (default: 'yjs-awareness')
+   * @param {string} [options.messageEvent] - Event name for messages (default: 'YjsMessage')
    */
-  constructor (echo, channelName, { messageEvent = 'yjs-message', awarenessEvent = 'yjs-awareness' } = {}) {
+  constructor (echo, channelName, { messageEvent = 'YjsMessage' } = {}) {
     super()
     this.echo = echo
     this.channelName = channelName
     this.messageEvent = messageEvent
-    this.awarenessEvent = awarenessEvent
     this.channel = null
     this._readyState = BaseAdapter.CLOSED
     this._listeners = new Map()
@@ -79,17 +77,8 @@ export class LaravelEchoAdapter extends BaseAdapter {
         }
       })
 
-      // Listen for Yjs sync messages
+      // Listen for Yjs messages broadcasted from the server
       this.channel.listen(`.${this.messageEvent}`, (event) => {
-        if (this.onmessage && event.data) {
-          // Convert base64 string back to Uint8Array
-          const data = this._base64ToUint8Array(event.data)
-          this.onmessage({ type: 'message', data: data.buffer })
-        }
-      })
-
-      // Listen for awareness updates
-      this.channel.listen(`.${this.awarenessEvent}`, (event) => {
         if (this.onmessage && event.data) {
           // Convert base64 string back to Uint8Array
           const data = this._base64ToUint8Array(event.data)
@@ -115,7 +104,7 @@ export class LaravelEchoAdapter extends BaseAdapter {
   }
 
   /**
-   * Send data through the Laravel Echo channel
+   * Send data through the Laravel Echo channel via server
    * @param {Uint8Array | ArrayBuffer} data - Binary data to send
    */
   send (data) {
@@ -128,9 +117,13 @@ export class LaravelEchoAdapter extends BaseAdapter {
       const uint8Array = data instanceof Uint8Array ? data : new Uint8Array(data)
       const base64 = this._uint8ArrayToBase64(uint8Array)
 
-      // Use whisper to send to other users in the presence channel
-      // Note: This requires Laravel backend to broadcast the message
-      this.channel.whisper(this.messageEvent, { data: base64 })
+      // Send to server using Pusher's send_event
+      // Server will validate, process, and broadcast to other clients
+      this.echo.connector.pusher.send_event(
+        this.messageEvent,
+        JSON.stringify({ data: base64 }),
+        this.channelName
+      )
     } catch (error) {
       if (this.onerror) {
         this.onerror({ type: 'error', error })

@@ -112,10 +112,10 @@ Broadcast::channel('document.{documentId}', function ($user, $documentId) {
 ### 2. Create Event for Broadcasting Yjs Messages
 
 ```bash
-php artisan make:event YjsMessageEvent
+php artisan make:event YjsMessage
 ```
 
-In `app/Events/YjsMessageEvent.php`:
+In `app/Events/YjsMessage.php`:
 
 ```php
 <?php
@@ -129,17 +129,19 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class YjsMessageEvent implements ShouldBroadcastNow
+class YjsMessage implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public $data;
     public $documentId;
+    public $senderId;
 
-    public function __construct($documentId, $data)
+    public function __construct($documentId, $data, $senderId = null)
     {
         $this->documentId = $documentId;
         $this->data = $data;
+        $this->senderId = $senderId;
     }
 
     public function broadcastOn()
@@ -149,7 +151,7 @@ class YjsMessageEvent implements ShouldBroadcastNow
 
     public function broadcastAs()
     {
-        return 'yjs-message';
+        return 'YjsMessage';
     }
 
     public function broadcastWith()
@@ -159,54 +161,99 @@ class YjsMessageEvent implements ShouldBroadcastNow
 }
 ```
 
-### 3. Create Controller to Handle Messages
+### 3. Create Webhook Controller to Handle Client Events
+
+When using `send_event()`, Pusher sends the data to your Laravel backend as a webhook. You need to create a webhook handler to process and broadcast these messages.
 
 ```bash
-php artisan make:controller YjsController
+php artisan make:controller PusherWebhookController
 ```
 
-In `app/Http/Controllers/YjsController.php`:
+In `app/Http/Controllers/PusherWebhookController.php`:
 
 ```php
 <?php
 
 namespace App\Http\Controllers;
 
-use App\Events\YjsMessageEvent;
+use App\Events\YjsMessage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
-class YjsController extends Controller
+class PusherWebhookController extends Controller
 {
-    public function handleMessage(Request $request, $documentId)
+    public function handleWebhook(Request $request)
     {
-        // Validate that user can edit this document
-        $document = \App\Models\Document::findOrFail($documentId);
-        $this->authorize('edit', $document);
+        // Validate the webhook signature (important for security)
+        if (!$this->isValidSignature($request)) {
+            return response()->json(['error' => 'Invalid signature'], 403);
+        }
 
-        // Get the base64 encoded Yjs message
-        $data = $request->input('data');
+        // Get all events from the webhook
+        $events = $request->input('events', []);
 
-        // Broadcast to all other users in the presence channel
-        broadcast(new YjsMessageEvent($documentId, $data))->toOthers();
+        foreach ($events as $event) {
+            if ($event['name'] === 'client-YjsMessage') {
+                $this->handleYjsMessage($event);
+            }
+        }
 
         return response()->json(['status' => 'success']);
+    }
+
+    protected function handleYjsMessage($event)
+    {
+        // Extract channel name and data
+        $channelName = $event['channel'];
+        $data = json_decode($event['data'], true);
+
+        // Extract document ID from channel name (e.g., 'presence-document.123' -> '123')
+        if (preg_match('/presence-document\.(\d+)/', $channelName, $matches)) {
+            $documentId = $matches[1];
+
+            // Optional: Validate user permissions here if needed
+            // $userId = $event['user_id'] ?? null;
+
+            // Broadcast to all users in the channel
+            broadcast(new YjsMessage($documentId, $data['data'] ?? ''));
+        }
+    }
+
+    protected function isValidSignature(Request $request)
+    {
+        $expectedSignature = hash_hmac(
+            'sha256',
+            $request->getContent(),
+            config('broadcasting.connections.pusher.secret')
+        );
+
+        $providedSignature = $request->header('X-Pusher-Signature');
+
+        return hash_equals($expectedSignature, $providedSignature);
     }
 }
 ```
 
-### 4. Add API Routes
+### 4. Add Webhook Route
 
-In `routes/api.php`:
+In `routes/api.php` or `routes/web.php`:
 
 ```php
-use App\Http\Controllers\YjsController;
+use App\Http\Controllers\PusherWebhookController;
 
-Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/documents/{documentId}/yjs-message', [YjsController::class, 'handleMessage']);
-});
+// Pusher webhook endpoint (no authentication needed, verified by signature)
+Route::post('/pusher/webhook', [PusherWebhookController::class, 'handleWebhook']);
 ```
 
-### 5. Configure Broadcasting Driver
+**Important:** Make sure to exclude this route from CSRF protection in `app/Http/Middleware/VerifyCsrfToken.php`:
+
+```php
+protected $except = [
+    'pusher/webhook',
+];
+```
+
+### 5. Configure Broadcasting Driver and Webhook
 
 In `.env`:
 
@@ -219,16 +266,68 @@ PUSHER_APP_SECRET=your_app_secret
 PUSHER_APP_CLUSTER=your_cluster
 ```
 
+### 6. Enable Client Events in Pusher
+
+1. Go to your Pusher dashboard
+2. Select your app
+3. Go to "App Settings"
+4. Enable "Client Events"
+5. Add your webhook URL (e.g., `https://yourdomain.com/api/pusher/webhook`)
+
+**Note:** Client events must be enabled for `send_event()` to work. The webhook allows your Laravel backend to receive, validate, and broadcast these events.
+
 ## Advanced Configuration
 
-### Using Client Events (Whisper)
+### How It Works
 
-Laravel Echo supports client events (whisper) which can reduce server load by sending messages directly between clients. However, this requires Pusher's client events to be enabled.
+The LaravelEchoAdapter uses Pusher's `send_event()` API to send Yjs messages through your Laravel backend:
 
-The `LaravelEchoAdapter` uses whisper by default. To make it work:
+1. **Client sends message** → Uses `send_event()` to send to Pusher
+2. **Pusher triggers webhook** → Sends the message to your Laravel backend
+3. **Laravel validates & broadcasts** → Your webhook handler validates permissions and broadcasts to other clients
+4. **Other clients receive** → Messages are delivered via the Presence Channel
 
-1. **Enable client events in Pusher dashboard**
-2. **Update the adapter to use whisper** (already done by default)
+This approach provides:
+- **Server-side validation** - All messages go through your backend
+- **Authentication & Authorization** - Full control over who can send/receive
+- **Logging & Monitoring** - Track all collaborative editing activity
+- **Rate Limiting** - Prevent abuse at the server level
+
+### Advanced: Adding Authorization to Webhook
+
+You can add additional authorization checks in the webhook handler:
+
+```php
+protected function handleYjsMessage($event)
+{
+    $channelName = $event['channel'];
+    $userId = $event['user_id'] ?? null;
+    $data = json_decode($event['data'], true);
+
+    if (preg_match('/presence-document\.(\d+)/', $channelName, $matches)) {
+        $documentId = $matches[1];
+
+        // Verify user has permission to edit this document
+        $document = \App\Models\Document::find($documentId);
+        if (!$document) {
+            Log::warning("Document not found: {$documentId}");
+            return;
+        }
+
+        // Optional: Check user permissions
+        if ($userId) {
+            $user = \App\Models\User::find($userId);
+            if (!$user || !$user->can('edit', $document)) {
+                Log::warning("User {$userId} not authorized for document {$documentId}");
+                return;
+            }
+        }
+
+        // Broadcast to all users in the channel
+        broadcast(new YjsMessage($documentId, $data['data'] ?? '', $userId));
+    }
+}
+```
 
 ### Persistence
 
@@ -426,20 +525,25 @@ const editor = new CollaborativeEditor(123)
 
 1. **Echo not connecting**: Check your broadcasting configuration and ensure the auth endpoint is correct
 2. **Presence channel authorization fails**: Verify your `routes/channels.php` authorization logic
-3. **Messages not broadcasting**: Ensure queue workers are running if using queued broadcasts
+3. **Messages not broadcasting**: Ensure your webhook is configured correctly in Pusher dashboard
+4. **Webhook not receiving events**: Check that client events are enabled in Pusher and webhook URL is correct
+5. **Invalid signature errors**: Verify your `PUSHER_APP_SECRET` matches your Pusher dashboard settings
 
 ### Performance
 
-1. **Too many broadcasts**: Consider batching updates or implementing debouncing
+1. **Too many webhooks**: Consider implementing debouncing on the client side
 2. **Large documents**: Implement incremental updates and persistence
-3. **Rate limiting**: Configure appropriate rate limits in your Laravel application
+3. **Rate limiting**: Configure rate limits in your webhook handler and at the Pusher level
+4. **Webhook latency**: Ensure your server responds quickly to webhook requests (< 200ms)
 
 ### Security
 
 1. **Always authorize users** in your presence channel
-2. **Validate incoming data** in your controller
-3. **Use CSRF protection** for all API calls
+2. **Validate webhook signatures** in your webhook handler (shown in example above)
+3. **Verify permissions** before broadcasting messages
 4. **Implement rate limiting** to prevent abuse
+5. **Use HTTPS** for webhook endpoint
+6. **Log suspicious activity** for monitoring
 
 ## Alternatives to Pusher
 

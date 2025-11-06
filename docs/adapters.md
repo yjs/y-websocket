@@ -79,10 +79,11 @@ const provider = new WebsocketProvider(null, null, doc, {
 
 ```javascript
 const adapter = new LaravelEchoAdapter(echo, channelName, {
-  messageEvent: 'yjs-message',      // Event name for Yjs messages (default)
-  awarenessEvent: 'yjs-awareness'   // Event name for awareness updates (default)
+  messageEvent: 'YjsMessage'  // Event name for Yjs messages (default)
 })
 ```
+
+**Note:** All Yjs messages (sync, awareness, auth) are sent through a single event to the server, which then broadcasts them to other clients in the Presence Channel.
 
 ### 3. Custom Adapters
 
