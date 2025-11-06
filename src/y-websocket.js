@@ -16,6 +16,7 @@ import { ObservableV2 } from 'lib0/observable'
 import * as math from 'lib0/math'
 import * as url from 'lib0/url'
 import * as env from 'lib0/environment'
+import { WebSocketAdapter } from './adapters/websocket-adapter.js'
 
 export const messageSync = 0
 export const messageQueryAwareness = 3
@@ -125,18 +126,18 @@ const readMessage = (provider, buf, emitSynced) => {
 }
 
 /**
- * Outsource this function so that a new websocket connection is created immediately.
- * I suspect that the `ws.onclose` event is not always fired if there are network issues.
+ * Outsource this function so that a new connection is created immediately.
+ * I suspect that the connection close event is not always fired if there are network issues.
  *
  * @param {WebsocketProvider} provider
- * @param {WebSocket} ws
+ * @param {any} adapter
  * @param {CloseEvent | null} event
  */
-const closeWebsocketConnection = (provider, ws, event) => {
-  if (ws === provider.ws) {
+const closeWebsocketConnection = (provider, adapter, event) => {
+  if (adapter === provider.ws) {
     provider.emit('connection-close', [event, provider])
     provider.ws = null
-    ws.close()
+    adapter.close()
     provider.wsconnecting = false
     if (provider.wsconnected) {
       provider.wsconnected = false
@@ -173,27 +174,26 @@ const closeWebsocketConnection = (provider, ws, event) => {
  */
 const setupWS = (provider) => {
   if (provider.shouldConnect && provider.ws === null) {
-    const websocket = new provider._WS(provider.url, provider.protocols)
-    websocket.binaryType = 'arraybuffer'
-    provider.ws = websocket
+    const adapter = provider.adapter
+    provider.ws = adapter
     provider.wsconnecting = true
     provider.wsconnected = false
     provider.synced = false
 
-    websocket.onmessage = (event) => {
+    adapter.onmessage = (event) => {
       provider.wsLastMessageReceived = time.getUnixTime()
       const encoder = readMessage(provider, new Uint8Array(event.data), true)
       if (encoding.length(encoder) > 1) {
-        websocket.send(encoding.toUint8Array(encoder))
+        adapter.send(encoding.toUint8Array(encoder))
       }
     }
-    websocket.onerror = (event) => {
+    adapter.onerror = (event) => {
       provider.emit('connection-error', [event, provider])
     }
-    websocket.onclose = (event) => {
-      closeWebsocketConnection(provider, websocket, event)
+    adapter.onclose = (event) => {
+      closeWebsocketConnection(provider, adapter, event)
     }
-    websocket.onopen = () => {
+    adapter.onopen = () => {
       provider.wsLastMessageReceived = time.getUnixTime()
       provider.wsconnecting = false
       provider.wsconnected = true
@@ -205,7 +205,7 @@ const setupWS = (provider) => {
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageSync)
       syncProtocol.writeSyncStep1(encoder, provider.doc)
-      websocket.send(encoding.toUint8Array(encoder))
+      adapter.send(encoding.toUint8Array(encoder))
       // broadcast local awareness state
       if (provider.awareness.getLocalState() !== null) {
         const encoderAwarenessState = encoding.createEncoder()
@@ -216,12 +216,14 @@ const setupWS = (provider) => {
             provider.doc.clientID
           ])
         )
-        websocket.send(encoding.toUint8Array(encoderAwarenessState))
+        adapter.send(encoding.toUint8Array(encoderAwarenessState))
       }
     }
     provider.emit('status', [{
       status: 'connecting'
     }])
+    // Connect the adapter
+    adapter.connect(provider.url, provider.protocols)
   }
 }
 
@@ -230,9 +232,9 @@ const setupWS = (provider) => {
  * @param {ArrayBuffer} buf
  */
 const broadcastMessage = (provider, buf) => {
-  const ws = provider.ws
-  if (provider.wsconnected && ws && ws.readyState === ws.OPEN) {
-    ws.send(buf)
+  const adapter = provider.ws
+  if (provider.wsconnected && adapter && adapter.readyState === adapter.OPEN) {
+    adapter.send(buf)
   }
   if (provider.bcconnected) {
     bc.publish(provider.bcChannel, buf, provider)
@@ -262,7 +264,8 @@ export class WebsocketProvider extends ObservableV2 {
    * @param {awarenessProtocol.Awareness} [opts.awareness]
    * @param {Object<string,string>} [opts.params] specify url parameters
    * @param {Array<string>} [opts.protocols] specify websocket protocols
-   * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
+   * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionally provide a WebSocket polyfill
+   * @param {any} [opts.adapter] Connection adapter (e.g., WebSocketAdapter, LaravelEchoAdapter)
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
    * @param {boolean} [opts.disableBc] Disable cross-tab BroadcastChannel communication
@@ -273,17 +276,18 @@ export class WebsocketProvider extends ObservableV2 {
     params = {},
     protocols = [],
     WebSocketPolyfill = WebSocket,
+    adapter = null,
     resyncInterval = -1,
     maxBackoffTime = 2500,
     disableBc = false
   } = {}) {
     super()
     // ensure that serverUrl does not end with /
-    while (serverUrl[serverUrl.length - 1] === '/') {
+    while (serverUrl && serverUrl[serverUrl.length - 1] === '/') {
       serverUrl = serverUrl.slice(0, serverUrl.length - 1)
     }
-    this.serverUrl = serverUrl
-    this.bcChannel = serverUrl + '/' + roomname
+    this.serverUrl = serverUrl || ''
+    this.bcChannel = (serverUrl || 'local') + '/' + (roomname || 'default')
     this.maxBackoffTime = maxBackoffTime
     /**
      * The specified url parameters. This can be safely updated. The changed parameters will be used
@@ -292,9 +296,11 @@ export class WebsocketProvider extends ObservableV2 {
      */
     this.params = params
     this.protocols = protocols
-    this.roomname = roomname
+    this.roomname = roomname || ''
     this.doc = doc
     this._WS = WebSocketPolyfill
+    // Use provided adapter or create default WebSocket adapter
+    this.adapter = adapter || new WebSocketAdapter(WebSocketPolyfill)
     this.awareness = awareness
     this.wsconnected = false
     this.wsconnecting = false
@@ -307,7 +313,7 @@ export class WebsocketProvider extends ObservableV2 {
      */
     this._synced = false
     /**
-     * @type {WebSocket?}
+     * @type {any}
      */
     this.ws = null
     this.wsLastMessageReceived = 0
@@ -323,7 +329,7 @@ export class WebsocketProvider extends ObservableV2 {
     this._resyncInterval = 0
     if (resyncInterval > 0) {
       this._resyncInterval = /** @type {any} */ (setInterval(() => {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        if (this.ws && this.ws.readyState === this.ws.OPEN) {
           // resend sync step 1
           const encoder = encoding.createEncoder()
           encoding.writeVarUint(encoder, messageSync)
@@ -392,7 +398,7 @@ export class WebsocketProvider extends ObservableV2 {
       ) {
         // no message received in a long time - not even your own awareness
         // updates (which are updated every 15 seconds)
-        closeWebsocketConnection(this, /** @type {WebSocket} */ (this.ws), null)
+        closeWebsocketConnection(this, /** @type {any} */ (this.ws), null)
       }
     }, messageReconnectTimeout / 10))
     if (connect) {
