@@ -148,33 +148,7 @@ Y-websocket now supports connection adapters, allowing you to use different tran
 ### Available Adapters
 
 - **WebSocketAdapter** (default) - Standard WebSocket protocol
-- **LaravelEchoAdapter** - Laravel Broadcasting with Presence Channels
 - **Custom adapters** - Create your own for any transport mechanism
-
-### Using Laravel Echo Adapter
-
-```js
-import Echo from 'laravel-echo'
-import Pusher from 'pusher-js'
-import * as Y from 'yjs'
-import { WebsocketProvider } from '@y/websocket'
-import { LaravelEchoAdapter } from '@y/websocket/src/adapters'
-
-window.Pusher = Pusher
-
-const echo = new Echo({
-  broadcaster: 'pusher',
-  key: 'your-pusher-key',
-  cluster: 'your-cluster',
-  forceTLS: true
-})
-
-const doc = new Y.Doc()
-const adapter = new LaravelEchoAdapter(echo, 'document.123')
-const provider = new WebsocketProvider(null, null, doc, {
-  adapter: adapter
-})
-```
 
 ### Creating Custom Adapters
 
@@ -191,11 +165,6 @@ class MyCustomAdapter extends BaseAdapter {
 const adapter = new MyCustomAdapter()
 const provider = new WebsocketProvider(null, null, doc, { adapter })
 ```
-
-### Documentation
-
-- [Connection Adapters Guide](./docs/adapters.md)
-- [Laravel Echo Integration](./docs/laravel-echo.md)
 
 ## License
 
