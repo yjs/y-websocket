@@ -25,6 +25,21 @@ as fallback).
 * Supports exchange of awareness information (e.g. cursors).
 * **NEW**: Connection adapters for flexible transport mechanisms (WebSocket, Laravel Echo, custom adapters).
 
+## Package Exports
+
+This package provides multiple entry points for different functionality:
+
+```js
+// Main provider
+import { WebsocketProvider } from '@y/websocket'
+
+// Connection adapters
+import { BaseAdapter, WebSocketAdapter, LaravelEchoAdapter } from '@y/websocket'
+
+// Utility functions
+import { uint8ArrayToBase64, base64ToUint8Array } from '@y/websocket'
+```
+
 ## Quick Start
 
 ### Install dependencies
@@ -148,12 +163,63 @@ Y-websocket now supports connection adapters, allowing you to use different tran
 ### Available Adapters
 
 - **WebSocketAdapter** (default) - Standard WebSocket protocol
+- **LaravelEchoAdapter** - Laravel Echo presence channels with automatic chunking
 - **Custom adapters** - Create your own for any transport mechanism
+
+### Using the Laravel Echo Adapter
+
+The Laravel Echo adapter enables real-time collaboration using Laravel Echo presence channels. It includes automatic message chunking for large updates and handles presence awareness.
+
+```js
+import * as Y from 'yjs'
+import Echo from 'laravel-echo'
+import Pusher from 'pusher-js'
+import { WebsocketProvider, LaravelEchoAdapter } from '@y/websocket'
+
+// Setup Laravel Echo
+window.Pusher = Pusher
+const echo = new Echo({
+  broadcaster: 'pusher',
+  key: 'your-pusher-key',
+  cluster: 'your-cluster',
+  encrypted: true
+})
+
+// Create Y.js document
+const doc = new Y.Doc()
+
+// Create Laravel Echo adapter
+const adapter = new LaravelEchoAdapter(echo, 'presence-document-room', {
+  messageEvent: 'yjs-message',      // optional, default: 'yjs-message'
+  awarenessEvent: 'yjs-awareness',  // optional, default: 'yjs-awareness'
+  onHere: (users) => {
+    console.log('Users in channel:', users)
+  },
+  onJoining: (user) => {
+    console.log('User joined:', user)
+  },
+  onLeaving: (user) => {
+    console.log('User left:', user)
+  }
+})
+
+// Create WebSocket provider with the adapter
+const provider = new WebsocketProvider(null, null, doc, { adapter })
+
+provider.on('status', event => {
+  console.log(event.status) // logs "connected" or "disconnected"
+})
+```
+
+**Note:** The Laravel Echo adapter requires:
+- A Laravel backend with [Laravel Echo Server](https://github.com/tlaverdure/laravel-echo-server) or Pusher/Ably/Soketi
+- Presence channels configured in your Laravel application
+- Users must be authenticated to join presence channels
 
 ### Creating Custom Adapters
 
 ```js
-import { BaseAdapter } from '@y/websocket/src/adapters'
+import { BaseAdapter } from '@y/websocket/adapters'
 
 class MyCustomAdapter extends BaseAdapter {
   connect(url, protocols) { /* your connection logic */ }

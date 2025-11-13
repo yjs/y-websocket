@@ -134,3 +134,9 @@ export class WebsocketProvider extends ObservableV2<WebsocketProviderEvents> {
 
   connect(): void
 }
+
+// Re-export adapters for convenience
+export { BaseAdapter, WebSocketAdapter, LaravelEchoAdapter, LaravelEcho, LaravelEchoChannel, LaravelEchoUser, LaravelEchoAdapterOptions } from './adapters/index.js'
+
+// Re-export utils for convenience
+export { uint8ArrayToBase64, base64ToUint8Array } from './utils/index.js'

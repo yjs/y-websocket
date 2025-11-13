@@ -30,7 +30,8 @@
       "types": "./dist/src/y-websocket.d.ts",
       "default": "./src/y-websocket.js"
     },
-    "./adapters": "./src/adapters/index.js"
+    "./adapters": "./src/adapters/index.js",
+    "./utils": "./src/utils/index.js"
   },
   "repository": {
     "type": "git",
