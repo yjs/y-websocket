@@ -266,6 +266,7 @@ export class WebsocketProvider extends ObservableV2 {
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
    * @param {boolean} [opts.disableBc] Disable cross-tab BroadcastChannel communication
+   * @param {number} [opts.throttle] Throttle interval for sending updates (in ms)
    */
   constructor (serverUrl, roomname, doc, {
     connect = true,
@@ -275,7 +276,8 @@ export class WebsocketProvider extends ObservableV2 {
     WebSocketPolyfill = WebSocket,
     resyncInterval = -1,
     maxBackoffTime = 2500,
-    disableBc = false
+    disableBc = false,
+    throttle = 0
   } = {}) {
     super()
     // ensure that serverUrl does not end with /
@@ -302,6 +304,7 @@ export class WebsocketProvider extends ObservableV2 {
     this.disableBc = disableBc
     this.wsUnsuccessfulReconnects = 0
     this.messageHandlers = messageHandlers.slice()
+    this.throttle = throttle
     /**
      * @type {boolean}
      */
@@ -358,7 +361,64 @@ export class WebsocketProvider extends ObservableV2 {
         broadcastMessage(this, encoding.toUint8Array(encoder))
       }
     }
-    this.doc.on('update', this._updateHandler)
+
+    /**
+     * queued updates if throttling is enabled
+     * @type {*[]}
+     * @private
+     */
+    this._updateQueue = [];
+
+    /**
+     * timer for throttling
+     * @type {any}
+     * @private
+     */
+    this._throttleTimer = undefined;
+
+    /**
+     * send the queued updates
+     * @private
+     */
+    this._batchBroadcastUpdates = () => {
+      if (this._updateQueue.length > 0) {
+        const mergedUpdate = this._updateQueue.length === 1
+          ? this._updateQueue[0]
+          : Y.mergeUpdates(this._updateQueue);
+
+        this._updateQueue = [];
+
+        const encoder = encoding.createEncoder();
+        encoding.writeVarUint(encoder, messageSync);
+        syncProtocol.writeUpdate(encoder, mergedUpdate);
+
+        broadcastMessage(this, encoding.toUint8Array(encoder));
+      }
+    };
+
+    /**
+     * Listens to Yjs updates and adds them to the update queue for throttling
+     * @param {Uint8Array} update
+     * @param {any} origin
+     */
+    this._throttledUpdateHandler = (update, origin) => {
+      if (origin !== this) {
+        this._updateQueue.push(update)
+        if (!this._throttleTimer) {
+          this._throttleTimer = setTimeout(() => {
+            delete this._throttleTimer;
+            this._batchBroadcastUpdates();
+          }, this.throttle);
+        }
+      }
+    }
+
+    if (this.throttle > 0) {
+      this.doc.on('update', this._throttledUpdateHandler)
+    } else {
+      this.doc.on('update', this._updateHandler)
+    }
+
     /**
      * @param {any} changed
      * @param {any} _origin
@@ -498,6 +558,11 @@ export class WebsocketProvider extends ObservableV2 {
 
   disconnect () {
     this.shouldConnect = false
+    if (this._throttleTimer) {
+      clearTimeout(this._throttleTimer);
+      delete this._throttleTimer;
+      this._batchBroadcastUpdates();
+    }
     this.disconnectBc()
     if (this.ws !== null) {
       closeWebsocketConnection(this, this.ws, null)
