@@ -145,7 +145,7 @@ const closeWebsocketConnection = (provider, ws, event) => {
       awarenessProtocol.removeAwarenessStates(
         provider.awareness,
         Array.from(provider.awareness.getStates().keys()).filter((client) =>
-          client !== provider.doc.clientID
+          client !== provider.awareness.clientID
         ),
         provider
       )
@@ -469,7 +469,7 @@ export class WebsocketProvider extends ObservableV2 {
     encoding.writeVarUint8Array(
       encoderAwarenessState,
       awarenessProtocol.encodeAwarenessUpdate(this.awareness, [
-        this.doc.clientID
+        this.awareness.clientID
       ])
     )
     bc.publish(
@@ -486,7 +486,7 @@ export class WebsocketProvider extends ObservableV2 {
     encoding.writeVarUint8Array(
       encoder,
       awarenessProtocol.encodeAwarenessUpdate(this.awareness, [
-        this.doc.clientID
+        this.awareness.clientID
       ], new Map())
     )
     broadcastMessage(this, encoding.toUint8Array(encoder))

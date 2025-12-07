@@ -52,17 +52,17 @@
   },
   "dependencies": {
     "@y/protocols": "^1.0.6-1",
-    "lib0": "^0.2.102"
+    "lib0": "^0.2.115-6"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
     "rollup": "^4.43.0",
     "standard": "^17.1.2",
     "typescript": "^5.8.3",
-    "yjs": "^14.0.0-6"
+    "yjs": "^14.0.0-16"
   },
   "peerDependencies": {
-    "yjs": "^14.0.0-6"
+    "yjs": "^14.0.0-16"
   },
   "engines": {
     "npm": ">=8.0.0",
