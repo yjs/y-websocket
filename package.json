@@ -12,10 +12,11 @@
     "url": "https://github.com/sponsors/dmonad"
   },
   "scripts": {
-    "dist": "rm -rf dist && rollup -c && tsc --skipLibCheck",
+    "clean": "rm -rf dist",
+    "dist": "npm run clean && rollup -c && tsc --skipLibCheck",
     "lint": "standard && tsc",
     "test": "npm run lint",
-    "preversion": "npm run lint && npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
+    "preversion": "npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
   },
   "files": [
     "dist/*",
