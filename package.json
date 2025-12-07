@@ -16,7 +16,7 @@
     "dist": "npm run clean && rollup -c && tsc --skipLibCheck",
     "lint": "standard && tsc",
     "test": "npm run lint",
-    "preversion": "npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
+    "preversion": "npm run dist && test -e dist/y-websocket.d.ts && test -e dist/y-websocket.cjs"
   },
   "files": [
     "dist/*",
@@ -28,7 +28,7 @@
       "module": "./src/y-websocket.js",
       "import": "./src/y-websocket.js",
       "require": "./dist/y-websocket.cjs",
-      "types": "./dist/src/y-websocket.d.ts",
+      "types": "./dist/y-websocket.d.ts",
       "default": "./src/y-websocket.js"
     }
   },
