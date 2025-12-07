@@ -227,7 +227,7 @@ const setupWS = (provider) => {
 
 /**
  * @param {WebsocketProvider} provider
- * @param {ArrayBuffer} buf
+ * @param {Uint8Array} buf
  */
 const broadcastMessage = (provider, buf) => {
   const ws = provider.ws
