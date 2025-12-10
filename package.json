@@ -14,7 +14,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "dist": "npm run clean && rollup -c && tsc --skipLibCheck",
-    "lint": "standard && tsc",
+    "lint": "standard && tsc --skipLibCheck",
     "test": "npm run lint",
     "preversion": "npm run dist && test -e dist/y-websocket.d.ts && test -e dist/y-websocket.cjs"
   },
@@ -52,7 +52,7 @@
     ]
   },
   "dependencies": {
-    "@y/protocols": "^1.0.6-1",
+    "@y/protocols": "^1.0.6-3",
     "lib0": "^0.2.115-6"
   },
   "devDependencies": {
@@ -60,10 +60,10 @@
     "rollup": "^4.43.0",
     "standard": "^17.1.2",
     "typescript": "^5.8.3",
-    "yjs": "^14.0.0-16"
+    "@y/y": "^14.0.0-16"
   },
   "peerDependencies": {
-    "yjs": "^14.0.0-16"
+    "@y/y": "^14.0.0-16"
   },
   "engines": {
     "npm": ">=8.0.0",

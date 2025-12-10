@@ -4,7 +4,7 @@
 
 /* eslint-env browser */
 
-import * as Y from 'yjs' // eslint-disable-line
+import * as Y from '@y/y' // eslint-disable-line
 import * as bc from 'lib0/broadcastchannel'
 import * as time from 'lib0/time'
 import * as encoding from 'lib0/encoding'
@@ -245,7 +245,7 @@ const broadcastMessage = (provider, buf) => {
  * creates a websocket connection to http://localhost:1234/my-document-name
  *
  * @example
- *   import * as Y from 'yjs'
+ *   import * as Y from '@y/y'
  *   import { WebsocketProvider } from 'y-websocket'
  *   const doc = new Y.Doc()
  *   const provider = new WebsocketProvider('http://localhost:1234', 'my-document-name', doc)

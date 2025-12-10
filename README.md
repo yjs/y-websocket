@@ -59,7 +59,7 @@ HOST=localhost PORT=1234 npx y-websocket
 ### Client Code:
 
 ```js
-import * as Y from 'yjs'
+import * as Y from '@y/y'
 import { WebsocketProvider } from 'y-websocket'
 
 const doc = new Y.Doc()
