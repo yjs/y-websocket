@@ -52,7 +52,7 @@
     ]
   },
   "dependencies": {
-    "@y/protocols": "^1.0.6-3",
+    "@y/protocols": "^1.0.6-rc.1",
     "lib0": "^1.0.0-rc.1"
   },
   "devDependencies": {
