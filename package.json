@@ -15,7 +15,7 @@
     "clean": "rm -rf dist",
     "dist": "npm run clean && rollup -c && tsc --skipLibCheck",
     "lint": "standard && tsc --skipLibCheck",
-    "test": "npm run lint",
+    "test": "node ./test/index.js",
     "preversion": "npm run dist && test -e dist/y-websocket.d.ts && test -e dist/y-websocket.cjs"
   },
   "files": [
@@ -57,10 +57,13 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@y/websocket-server": "^0.1.5",
+    "@y/y": "^14.0.0-22",
     "rollup": "^4.43.0",
     "standard": "^17.1.2",
     "typescript": "^5.8.3",
-    "@y/y": "^14.0.0-22"
+    "ws": "^8.19.0",
+    "yjs": "^13.6.29"
   },
   "peerDependencies": {
     "@y/y": "*"
