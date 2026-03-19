@@ -56,7 +56,6 @@ messageHandlers[messageSync] = (
     decoding.readVarUint(subdecoder) // === syncMessageType
     const update = decoding.readVarUint8Array(subdecoder)
     const receivedIds = Y.createContentIdsFromUpdate(update)
-    const unconfirmedOldLen = provider.unconfirmedUpdates.length
     provider.unconfirmedUpdates = provider.unconfirmedUpdates.filter(unconfirmed => {
       unconfirmed.ids = Y.excludeContentIds(unconfirmed.ids, receivedIds)
       return !unconfirmed.ids.inserts.isEmpty() || !unconfirmed.ids.deletes.isEmpty()

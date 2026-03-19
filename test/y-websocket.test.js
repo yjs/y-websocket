@@ -18,11 +18,8 @@ export const testConnection = async () => {
   await promise.wait(500)
   t.assert(syncStatusEvents.length > 0)
   t.assert(syncStatusEvents[syncStatusEvents.length - 1].status === 'green')
-  debugger
   ydoc.get().insert(0, 'hi')
   t.compare(provider.syncStatus.status, 'yellow')
   await promise.wait(500)
   t.compare(provider.syncStatus.status, 'green')
-
 }
-
