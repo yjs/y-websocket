@@ -103,6 +103,10 @@ wsOpts = {
   awareness: new awarenessProtocol.Awareness(ydoc),
   // Specify the maximum amount to wait between reconnects (we use exponential backoff).
   maxBackoffTime: 2500
+  // Specify the maximum amount to wait between reconnects if previous connection succeeded (we use exponential backoff).
+  // This prevents connections that close right after their successful creation from being retried immediately.
+  // Backoff only resets when a connection has been open for `maxBackoffIntervalOnSuccessfulConnects * 2` ms
+  maxBackoffIntervalOnSuccessfulConnects: 2500
 }
 ```
 

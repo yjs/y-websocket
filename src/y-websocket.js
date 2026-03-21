@@ -184,6 +184,16 @@ const closeWebsocketConnection = (provider, ws, event) => {
  * @param {WebsocketProvider} provider
  */
 const setupWS = (provider) => {
+  // Start with 100ms interval between successful connects and increase with exponential backoff
+  const backoff = math.min(math.pow(2, provider.wsSubsequentConnects) * 50, provider.maxBackoffIntervalOnSuccessfulConnects)
+  const timeout = provider.wsLastConnectAt ? Date.now() - provider.wsLastConnectAt.getTime() : backoff
+  if (timeout < backoff) {
+    setTimeout(setupWS, backoff - timeout, provider)
+    return
+  } else if (timeout > provider.maxBackoffIntervalOnSuccessfulConnects * 2) {
+    provider.wsSubsequentConnects = 0
+  }
+
   if (provider.shouldConnect && provider.ws === null) {
     const websocket = new provider._WS(provider.url, provider.protocols)
     websocket.binaryType = 'arraybuffer'
@@ -206,6 +216,8 @@ const setupWS = (provider) => {
       closeWebsocketConnection(provider, websocket, event)
     }
     websocket.onopen = () => {
+      provider.wsLastConnectAt = new Date()
+      provider.wsSubsequentConnects++
       provider.wsLastMessageReceived = time.getUnixTime()
       provider.wsconnecting = false
       provider.wsconnected = true
@@ -311,6 +323,7 @@ export class WebsocketProvider extends ObservableV2 {
    * @param {typeof WebSocket} [opts.WebSocketPolyfill] Optionall provide a WebSocket polyfill
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
+   * @param {number} [opts.maxBackoffIntervalOnSuccessfulConnects] Maximum amount of time to wait before trying to reconnect if previous connection succeeded (we try to reconnect using exponential backoff). Backoff only resets after a connection has been open for `maxBackoffIntervalOnSuccessfulConnects * 2` ms
    * @param {boolean} [opts.disableBc] Disable cross-tab BroadcastChannel communication
    * @param {number} [opts.socketTimeout] If no message is received for this amount of time, client will close the socket and reconnect
    */
@@ -322,7 +335,8 @@ export class WebsocketProvider extends ObservableV2 {
     WebSocketPolyfill = WebSocket,
     resyncInterval = -1,
     maxBackoffTime = 2500,
-    disableBc = false,
+    maxBackoffIntervalOnSuccessfulConnects = 2500,
+    disableBc = false
     socketTimeout = math.round(awarenessProtocol.outdatedTimeout * 1.5)
   } = {}) {
     super()
@@ -333,6 +347,7 @@ export class WebsocketProvider extends ObservableV2 {
     this.serverUrl = serverUrl
     this.bcChannel = serverUrl + '/' + roomname
     this.maxBackoffTime = maxBackoffTime
+    this.maxBackoffIntervalOnSuccessfulConnects = maxBackoffIntervalOnSuccessfulConnects
     /**
      * The specified url parameters. This can be safely updated. The changed parameters will be used
      * when a new connection is established.
@@ -350,6 +365,8 @@ export class WebsocketProvider extends ObservableV2 {
     this.disableBc = disableBc
     this.socketTimeout = socketTimeout
     this.wsUnsuccessfulReconnects = 0
+    this.wsLastConnectAt = null
+    this.wsSubsequentConnects = 0
     this.messageHandlers = messageHandlers.slice()
     /**
      * @type {boolean}
