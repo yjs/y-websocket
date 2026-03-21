@@ -1,6 +1,6 @@
 {
   "name": "@y/websocket",
-  "version": "4.0.0-1",
+  "version": "4.0.0-rc.1",
   "description": "Websockets provider for Yjs",
   "main": "./dist/y-websocket.cjs",
   "module": "./src/y-websocket.js",
@@ -12,10 +12,11 @@
     "url": "https://github.com/sponsors/dmonad"
   },
   "scripts": {
-    "dist": "rm -rf dist && rollup -c && tsc",
-    "lint": "standard && tsc",
-    "test": "npm run lint",
-    "preversion": "npm run lint && npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
+    "clean": "rm -rf dist",
+    "dist": "npm run clean && rollup -c && tsc --skipLibCheck",
+    "lint": "standard && tsc --skipLibCheck",
+    "test": "node ./test/index.js",
+    "preversion": "npm run dist && test -e dist/y-websocket.d.ts && test -e dist/y-websocket.cjs"
   },
   "files": [
     "dist/*",
@@ -27,7 +28,7 @@
       "module": "./src/y-websocket.js",
       "import": "./src/y-websocket.js",
       "require": "./dist/y-websocket.cjs",
-      "types": "./dist/src/y-websocket.d.ts",
+      "types": "./dist/y-websocket.d.ts",
       "default": "./src/y-websocket.js"
     }
   },
@@ -51,18 +52,21 @@
     ]
   },
   "dependencies": {
-    "@y/protocols": "^1.0.6-1",
-    "lib0": "^0.2.102"
+    "@y/protocols": "^1.0.6-rc.1",
+    "lib0": "^1.0.0-rc.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@y/websocket-server": "^0.1.5",
+    "@y/y": "^14.0.0-22",
     "rollup": "^4.43.0",
     "standard": "^17.1.2",
     "typescript": "^5.8.3",
-    "yjs": "^14.0.0-6"
+    "ws": "^8.19.0",
+    "yjs": "^13.6.29"
   },
   "peerDependencies": {
-    "yjs": "^14.0.0-6"
+    "@y/y": "*"
   },
   "engines": {
     "npm": ">=8.0.0",

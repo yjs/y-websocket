@@ -59,7 +59,7 @@ HOST=localhost PORT=1234 npx y-websocket
 ### Client Code:
 
 ```js
-import * as Y from 'yjs'
+import * as Y from '@y/y'
 import { WebsocketProvider } from 'y-websocket'
 
 const doc = new Y.Doc()
@@ -121,6 +121,8 @@ wsOpts = {
   <dd>True if this instance is currently communicating to other browser-windows via BroadcastChannel.</dd>
   <b><code>wsProvider.synced: boolean</code></b>
   <dd>True if this instance is currently connected and synced with the server.</dd>
+  <b><code>wsProvider.syncStatus: SyncStatus</code></b>
+  <dd>The current sync status object containing <code>connected</code>, <code>receivedInitialSync</code>, <code>localUpdatesSynced</code>, <code>localUpdatesAge</code>, <code>lastMessageAge</code>, and <code>status</code> (<code>'green'</code>, <code>'yellow'</code>, or <code>'red'</code>). See the <code>'sync-status'</code> event for details. Only works with certain backends (e.g. yhub).</dd>
   <b><code>wsProvider.params : boolean</code></b>
   <dd>The specified url parameters. This can be safely updated, the new values
     will be used when a new connction is established. If this contains an
@@ -139,6 +141,27 @@ wsOpts = {
   <dd>Fires when the underlying websocket connection is closed. It forwards the websocket event to this event handler.</dd>
   <b><code>wsProvider.on('connection-error', function(WSErrorEvent))</code></b>
   <dd>Fires when the underlying websocket connection closes with an error. It forwards the websocket event to this event handler.</dd>
+  <b><code>wsProvider.on('sync-status', function(syncStatus: SyncStatus))</code></b>
+  <dd>
+    Receive detailed sync status updates. This event fires when the sync status changes, providing a distilled view of the connection and synchronization state. Only works with certain backends (e.g. yhub).
+    <br><br>
+    The <code>syncStatus</code> object has the following properties:
+    <ul>
+      <li><code>connected: boolean</code> – Whether the provider is currently connected to the server.</li>
+      <li><code>receivedInitialSync: boolean</code> – Whether the initial sync with the server has completed.</li>
+      <li><code>localUpdatesSynced: boolean</code> – Whether all local updates have been confirmed by the server.</li>
+      <li><code>localUpdatesAge: number</code> – Age in milliseconds of the oldest unconfirmed local update (0 if all synced).</li>
+      <li><code>lastMessageAge: number</code> – Time in milliseconds since the last message was received from the server.</li>
+      <li><code>status: 'green' | 'yellow' | 'red'</code> – Distilled sync status:
+        <ul>
+          <li><code>'green'</code> – Connected, synced, and no unconfirmed local updates.</li>
+          <li><code>'yellow'</code> – Connected but has unconfirmed local updates younger than 8 seconds.</li>
+          <li><code>'red'</code> – Disconnected, not synced, or unconfirmed local updates older than 8 seconds.</li>
+        </ul>
+      </li>
+    </ul>
+    The current sync status can also be accessed directly via <code>wsProvider.syncStatus</code>.
+  </dd>
 </dl>
 
 ## License

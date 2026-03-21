@@ -3,8 +3,7 @@
  */
 
 /* eslint-env browser */
-
-import * as Y from 'yjs' // eslint-disable-line
+import * as Y from '@y/y' // eslint-disable-line
 import * as bc from 'lib0/broadcastchannel'
 import * as time from 'lib0/time'
 import * as encoding from 'lib0/encoding'
@@ -16,6 +15,7 @@ import { ObservableV2 } from 'lib0/observable'
 import * as math from 'lib0/math'
 import * as url from 'lib0/url'
 import * as env from 'lib0/environment'
+import * as array from 'lib0/array'
 
 export const messageSync = 0
 export const messageQueryAwareness = 3
@@ -36,6 +36,7 @@ messageHandlers[messageSync] = (
   _messageType
 ) => {
   encoding.writeVarUint(encoder, messageSync)
+  const readSyncPos = decoder.pos
   const syncMessageType = syncProtocol.readSyncMessage(
     decoder,
     encoder,
@@ -47,6 +48,19 @@ messageHandlers[messageSync] = (
     !provider.synced
   ) {
     provider.synced = true
+  }
+  // update unconfirmedUpdates
+  if (syncMessageType === 1 || syncMessageType === 2) {
+    const subdecoder = decoding.createDecoder(decoder.arr)
+    subdecoder.pos = readSyncPos
+    decoding.readVarUint(subdecoder) // === syncMessageType
+    const update = decoding.readVarUint8Array(subdecoder)
+    const receivedIds = Y.createContentIdsFromUpdate(update)
+    provider.unconfirmedUpdates = provider.unconfirmedUpdates.filter(unconfirmed => {
+      unconfirmed.ids = Y.excludeContentIds(unconfirmed.ids, receivedIds)
+      return !unconfirmed.ids.inserts.isEmpty() || !unconfirmed.ids.deletes.isEmpty()
+    })
+    emitSyncStatusEvent(provider)
   }
 }
 
@@ -95,9 +109,6 @@ messageHandlers[messageAuth] = (
   )
 }
 
-// @todo - this should depend on awareness.outdatedTime
-const messageReconnectTimeout = 30000
-
 /**
  * @param {WebsocketProvider} provider
  * @param {string} reason
@@ -145,13 +156,14 @@ const closeWebsocketConnection = (provider, ws, event) => {
       awarenessProtocol.removeAwarenessStates(
         provider.awareness,
         Array.from(provider.awareness.getStates().keys()).filter((client) =>
-          client !== provider.doc.clientID
+          client !== provider.awareness.clientID
         ),
         provider
       )
       provider.emit('status', [{
         status: 'disconnected'
       }])
+      emitSyncStatusEvent(provider)
     } else {
       provider.wsUnsuccessfulReconnects++
     }
@@ -234,12 +246,13 @@ const setupWS = (provider) => {
     provider.emit('status', [{
       status: 'connecting'
     }])
+    emitSyncStatusEvent(provider)
   }
 }
 
 /**
  * @param {WebsocketProvider} provider
- * @param {ArrayBuffer} buf
+ * @param {Uint8Array} buf
  */
 const broadcastMessage = (provider, buf) => {
   const ws = provider.ws
@@ -252,17 +265,50 @@ const broadcastMessage = (provider, buf) => {
 }
 
 /**
+ * This sync status event only works on certain backends (e.g. yhub)
+ * @typedef {object} SyncStatus
+ * @property {boolean} SyncStatusEvent.connected
+ * @property {boolean} SyncStatusEvent.receivedInitialSync
+ * @property {boolean} SyncStatusEvent.localUpdatesSynced
+ * @property {number} SyncStatusEvent.localUpdatesAge
+ * @property {number} SyncStatusEvent.lastMessageAge
+ * @property {'green' | 'yellow' | 'red'} SyncStatusEvent.status Distilled sync status: 'green' if synced, connected, there are no unsynced local updates. 'yellow' if last local message age is younger than 8 seconds. 'red' if unsynced or disconnected or if last local message is older than 8 seconds
+ */
+
+export const acceptableConnectionDelay = 8000
+
+/**
+ * @param {WebsocketProvider} provider
+ */
+const emitSyncStatusEvent = provider => {
+  const syncStatus = provider.syncStatus
+  const prevSyncStatus = provider.prevSyncStatus
+  if (
+    prevSyncStatus == null ||
+    prevSyncStatus.status !== syncStatus.status ||
+    prevSyncStatus.connected !== syncStatus.connected ||
+    prevSyncStatus.localUpdatesSynced !== syncStatus.localUpdatesSynced ||
+    prevSyncStatus.receivedInitialSync !== syncStatus.receivedInitialSync ||
+    syncStatus.localUpdatesAge - prevSyncStatus.localUpdatesAge > 1000 ||
+    syncStatus.lastMessageAge - prevSyncStatus.lastMessageAge > 1000
+  ) {
+    provider.emit('sync-status', [syncStatus])
+    provider.prevSyncStatus = syncStatus
+  }
+}
+
+/**
  * Websocket Provider for Yjs. Creates a websocket connection to sync the shared document.
  * The document name is attached to the provided url. I.e. the following example
  * creates a websocket connection to http://localhost:1234/my-document-name
  *
  * @example
- *   import * as Y from 'yjs'
+ *   import * as Y from '@y/y'
  *   import { WebsocketProvider } from 'y-websocket'
  *   const doc = new Y.Doc()
  *   const provider = new WebsocketProvider('http://localhost:1234', 'my-document-name', doc)
  *
- * @extends {ObservableV2<{ 'connection-close': (event: CloseEvent | null,  provider: WebsocketProvider) => any, 'status': (event: { status: 'connected' | 'disconnected' | 'connecting' }) => any, 'connection-error': (event: Event, provider: WebsocketProvider) => any, 'sync': (state: boolean) => any }>}
+ * @extends {ObservableV2<{ 'connection-close': (event: CloseEvent | null,  provider: WebsocketProvider) => any, 'status': (event: { status: 'connected' | 'disconnected' | 'connecting' }) => any, 'connection-error': (event: Event, provider: WebsocketProvider) => any, 'sync': (state: boolean) => any, 'sync-status': (syncStatus: SyncStatus) => any }>}
  */
 export class WebsocketProvider extends ObservableV2 {
   /**
@@ -279,6 +325,7 @@ export class WebsocketProvider extends ObservableV2 {
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
    * @param {number} [opts.maxBackoffIntervalOnSuccessfulConnects] Maximum amount of time to wait before trying to reconnect if previous connection succeeded (we try to reconnect using exponential backoff). Backoff only resets after a connection has been open for `maxBackoffIntervalOnSuccessfulConnects * 2` ms
    * @param {boolean} [opts.disableBc] Disable cross-tab BroadcastChannel communication
+   * @param {number} [opts.socketTimeout] If no message is received for this amount of time, client will close the socket and reconnect
    */
   constructor (serverUrl, roomname, doc, {
     connect = true,
@@ -290,6 +337,7 @@ export class WebsocketProvider extends ObservableV2 {
     maxBackoffTime = 2500,
     maxBackoffIntervalOnSuccessfulConnects = 2500,
     disableBc = false
+    socketTimeout = math.round(awarenessProtocol.outdatedTimeout * 1.5)
   } = {}) {
     super()
     // ensure that serverUrl does not end with /
@@ -315,6 +363,7 @@ export class WebsocketProvider extends ObservableV2 {
     this.wsconnecting = false
     this.bcconnected = false
     this.disableBc = disableBc
+    this.socketTimeout = socketTimeout
     this.wsUnsuccessfulReconnects = 0
     this.wsLastConnectAt = null
     this.wsSubsequentConnects = 0
@@ -334,6 +383,14 @@ export class WebsocketProvider extends ObservableV2 {
      */
     this.shouldConnect = connect
 
+    /**
+     * @type {Array<{ ids: Y.ContentIds, created: number }>}
+     */
+    this.unconfirmedUpdates = []
+    /**
+     * @type {SyncStatus?}
+     */
+    this.prevSyncStatus = null
     /**
      * @type {number}
      */
@@ -369,6 +426,20 @@ export class WebsocketProvider extends ObservableV2 {
      */
     this._updateHandler = (update, origin) => {
       if (origin !== this) {
+        const now = time.getUnixTime()
+        const newContentIds = Y.createContentIdsFromUpdate(update)
+        const lastUnconfirmed = this.unconfirmedUpdates.length > 0 ? array.last(this.unconfirmedUpdates) : null
+        if (lastUnconfirmed != null && now - lastUnconfirmed.created < 500) {
+          lastUnconfirmed.ids = Y.mergeContentIds([lastUnconfirmed.ids, newContentIds])
+        } else {
+          this.unconfirmedUpdates.push({
+            created: now,
+            ids: newContentIds
+          })
+          if (this.unconfirmedUpdates.length === 1) {
+            emitSyncStatusEvent(this)
+          }
+        }
         const encoder = encoding.createEncoder()
         encoding.writeVarUint(encoder, messageSync)
         syncProtocol.writeUpdate(encoder, update)
@@ -404,16 +475,42 @@ export class WebsocketProvider extends ObservableV2 {
     this._checkInterval = /** @type {any} */ (setInterval(() => {
       if (
         this.wsconnected &&
-        messageReconnectTimeout <
+        this.socketTimeout <
           time.getUnixTime() - this.wsLastMessageReceived
       ) {
+        console.error('[y-websocket] closing timed-out websocket')
         // no message received in a long time - not even your own awareness
         // updates (which are updated every 15 seconds)
         closeWebsocketConnection(this, /** @type {WebSocket} */ (this.ws), null)
       }
-    }, messageReconnectTimeout / 10))
+      emitSyncStatusEvent(this)
+    }, acceptableConnectionDelay / 2))
     if (connect) {
       this.connect()
+    }
+  }
+
+  /**
+   * @return {SyncStatus}
+   */
+  get syncStatus () {
+    const {
+      unconfirmedUpdates,
+      wsconnected: connected,
+      synced: receivedInitialSync,
+      wsLastMessageReceived
+    } = this
+    const now = time.getUnixTime()
+    const localUpdatesSynced = unconfirmedUpdates.length === 0
+    const localUpdatesAge = localUpdatesSynced ? 0 : now - unconfirmedUpdates[0].created
+    const status = (connected && receivedInitialSync && localUpdatesAge === 0) ? 'green' : (connected && localUpdatesAge < acceptableConnectionDelay ? 'yellow' : 'red')
+    return {
+      connected,
+      receivedInitialSync,
+      localUpdatesSynced,
+      localUpdatesAge,
+      lastMessageAge: now - wsLastMessageReceived,
+      status
     }
   }
 
@@ -486,7 +583,7 @@ export class WebsocketProvider extends ObservableV2 {
     encoding.writeVarUint8Array(
       encoderAwarenessState,
       awarenessProtocol.encodeAwarenessUpdate(this.awareness, [
-        this.doc.clientID
+        this.awareness.clientID
       ])
     )
     bc.publish(
@@ -503,7 +600,7 @@ export class WebsocketProvider extends ObservableV2 {
     encoding.writeVarUint8Array(
       encoder,
       awarenessProtocol.encodeAwarenessUpdate(this.awareness, [
-        this.doc.clientID
+        this.awareness.clientID
       ], new Map())
     )
     broadcastMessage(this, encoding.toUint8Array(encoder))
