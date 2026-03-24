@@ -52,7 +52,6 @@
   },
   "dependencies": {
     "lib0": "^0.2.102",
-    "update": "^0.7.4",
     "y-protocols": "^1.0.5"
   },
   "devDependencies": {
