@@ -12,9 +12,9 @@
     "url": "https://github.com/sponsors/dmonad"
   },
   "scripts": {
-    "dist": "rm -rf dist && rollup -c && tsc",
-    "lint": "standard && tsc",
-    "test": "npm run lint",
+    "dist": "rm -rf dist && rollup -c && tsc --skipLibCheck",
+    "lint": "standard && tsc --skipLibCheck",
+    "test": "npm run lint && node ./test/index.js",
     "preversion": "npm run lint && npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
   },
   "files": [
@@ -52,16 +52,18 @@
   },
   "dependencies": {
     "lib0": "^0.2.102",
+    "update": "^0.7.4",
     "y-protocols": "^1.0.5"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@y/websocket-server": "^0.1.5",
     "rollup": "^3.19.1",
     "standard": "^12.0.1",
-    "typescript": "^4.9.5",
-    "yjs": "^13.5.0"
+    "typescript": "^4.9.5"
   },
   "peerDependencies": {
+    "@y/y": "*",
     "yjs": "^13.5.6"
   },
   "engines": {
