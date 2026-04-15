@@ -125,12 +125,14 @@ const permissionDeniedHandler = (provider, reason) =>
 const readMessage = (provider, buf, emitSynced) => {
   const decoder = decoding.createDecoder(buf)
   const encoder = encoding.createEncoder()
-  const messageType = decoding.readVarUint(decoder)
-  const messageHandler = provider.messageHandlers[messageType]
-  if (/** @type {any} */ (messageHandler)) {
-    messageHandler(encoder, decoder, provider, emitSynced, messageType)
-  } else {
-    console.error('Unable to compute message')
+  while (decoding.hasContent(decoder)) {
+    const messageType = decoding.readVarUint(decoder)
+    const messageHandler = provider.messageHandlers[messageType]
+    if (/** @type {any} */ (messageHandler)) {
+      messageHandler(encoder, decoder, provider, emitSynced, messageType)
+    } else {
+      console.error('Unable to compute message')
+    }
   }
   return encoder
 }
