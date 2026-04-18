@@ -7,7 +7,7 @@ information and document updates among clients.
 
 This repository contains a simple in-memory backend that can persist to
 databases, but it can't be scaled easily. The
-[y-redis](https://github.com/yjs/y-redis/) repository contains an alternative
+[@y/hub](https://github.com/yjs/yhub) repository contains an alternative
 backend that is scalable, provides auth*, and can persist to different backends.
 
 The Websocket Provider is a solid choice if you want a central source that
@@ -39,7 +39,7 @@ There are multiple y-websocket compatible backends for `y-websocket`:
 * [@y/websocket-server](https://github.com/yjs/y-websocket-server/)
 * hocuspocus
 - y-sweet
-- y-redis
+- [@y/hub](https://github.com/yjs/yhub)
 - ypy-websocket
 - pycrdt-websocket
 - [yrs-warp](https://github.com/y-crdt/yrs-warp)
