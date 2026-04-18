@@ -15,6 +15,13 @@ handles authentication and authorization. Websockets also send header
 information and cookies, so you can use existing authentication mechanisms with
 this server.
 
+This README primarily documents the currently stable `y-websocket` release and
+its usage with `yjs` v13.
+
+The `main` branch of this repository is the development branch for the unstable
+`@y/websocket` release, which adds support for Yjs v14 (`@y/y`). Most users
+should continue to use the stable `y-websocket` package with Yjs v13 for now.
+
 * Supports cross-tab communication. When you open the same document in the same
 browser, changes on the document are exchanged via cross-tab communication
 ([Broadcast
@@ -29,7 +36,11 @@ as fallback).
 ### Install dependencies
 
 ```sh
+# stable release (recommended)
 npm i y-websocket
+
+# main branch / unstable release
+npm i @y/websocket
 ```
 
 ### Start a y-websocket server
