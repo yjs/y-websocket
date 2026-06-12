@@ -151,6 +151,12 @@ const closeWebsocketConnection = (provider, ws, event) => {
   if (ws === provider.ws) {
     provider.emit('connection-close', [event, provider])
     provider.ws = null
+    // detach handlers so a socket that is still flushing buffered frames (e.g.
+    // a Node `ws` socket in CLOSING state) cannot mutate provider state anymore
+    ws.onmessage = null
+    ws.onopen = null
+    ws.onclose = null
+    ws.onerror = null
     ws.close()
     provider.wsconnecting = false
     if (provider.wsconnected) {
@@ -197,6 +203,7 @@ const setupWS = (provider) => {
     provider.synced = false
 
     websocket.onmessage = (event) => {
+      if (provider.ws !== websocket) return
       provider.wsLastMessageReceived = time.getUnixTime()
       const encoder = readMessage(provider, new Uint8Array(event.data), true)
       if (encoding.length(encoder) > 1) {
@@ -204,12 +211,14 @@ const setupWS = (provider) => {
       }
     }
     websocket.onerror = (event) => {
+      if (provider.ws !== websocket) return
       provider.emit('connection-error', [event, provider])
     }
     websocket.onclose = (event) => {
       closeWebsocketConnection(provider, websocket, event)
     }
     websocket.onopen = () => {
+      if (provider.ws !== websocket) return
       provider.wsLastMessageReceived = time.getUnixTime()
       provider.wsconnecting = false
       provider.wsconnected = true
