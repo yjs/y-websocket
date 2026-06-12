@@ -102,7 +102,10 @@ wsOpts = {
   // Specify an existing Awareness instance - see https://github.com/yjs/y-protocols
   awareness: new awarenessProtocol.Awareness(ydoc),
   // Specify the maximum amount to wait between reconnects (we use exponential backoff).
-  maxBackoffTime: 2500
+  maxBackoffTime: 2500,
+  // If no message is received for this amount of time (in ms), the client will close the
+  // socket and reconnect. Defaults to `1.5 * awarenessProtocol.outdatedTimeout` (45000ms).
+  socketTimeout: 45000
 }
 ```
 

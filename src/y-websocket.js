@@ -111,9 +111,6 @@ messageHandlers[messageAuth] = (
   )
 }
 
-// @todo - this should depend on awareness.outdatedTime
-const messageReconnectTimeout = 30000
-
 /**
  * @param {WebsocketProvider} provider
  * @param {string} reason
@@ -319,6 +316,7 @@ export class WebsocketProvider extends ObservableV2 {
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
    * @param {boolean} [opts.disableBc] Disable cross-tab BroadcastChannel communication
+   * @param {number} [opts.socketTimeout] If no message is received for this amount of time, the client will close the socket and reconnect
    */
   constructor (serverUrl, roomname, doc, {
     connect = true,
@@ -328,7 +326,8 @@ export class WebsocketProvider extends ObservableV2 {
     WebSocketPolyfill = WebSocket,
     resyncInterval = -1,
     maxBackoffTime = 2500,
-    disableBc = false
+    disableBc = false,
+    socketTimeout = math.round(awarenessProtocol.outdatedTimeout * 1.5)
   } = {}) {
     super()
     // ensure that serverUrl does not end with /
@@ -353,6 +352,7 @@ export class WebsocketProvider extends ObservableV2 {
     this.wsconnecting = false
     this.bcconnected = false
     this.disableBc = disableBc
+    this.socketTimeout = socketTimeout
     this.wsUnsuccessfulReconnects = 0
     this.messageHandlers = messageHandlers.slice()
     /**
@@ -461,7 +461,7 @@ export class WebsocketProvider extends ObservableV2 {
     this._checkInterval = /** @type {any} */ (setInterval(() => {
       if (
         this.wsconnected &&
-        messageReconnectTimeout <
+        this.socketTimeout <
           time.getUnixTime() - this.wsLastMessageReceived
       ) {
         // no message received in a long time - not even your own awareness
@@ -469,7 +469,7 @@ export class WebsocketProvider extends ObservableV2 {
         closeWebsocketConnection(this, /** @type {WebSocket} */ (this.ws), null)
       }
       emitSyncStatusEvent(this)
-    }, messageReconnectTimeout / 10))
+    }, this.socketTimeout / 10))
     if (connect) {
       this.connect()
     }
