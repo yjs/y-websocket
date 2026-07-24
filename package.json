@@ -73,7 +73,7 @@
   },
   "optionalDependencies": {
     "flatted": "^3.4.1",
-    "ws": "^6.2.1",
+    "ws": "^6.2.4",
     "y-leveldb": "^0.1.0"
   }
 }
