@@ -1,4 +1,5 @@
 import * as ywebsocket from './y-websocket.test.js'
+import * as reconnect from './reconnect.test.js'
 
 import { runTests } from 'lib0/testing'
 import { isBrowser, isNode } from 'lib0/environment'
@@ -8,7 +9,8 @@ if (isBrowser) {
   log.createVConsole(document.body)
 }
 runTests({
-  ywebsocket
+  ywebsocket,
+  reconnect
 }).then(success => {
   /* istanbul ignore next */
   if (isNode) {

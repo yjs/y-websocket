@@ -113,7 +113,12 @@ wsOpts = {
   // Specify an existing Awareness instance - see https://github.com/yjs/y-protocols
   awareness: new awarenessProtocol.Awareness(ydoc),
   // Specify the maximum amount to wait between reconnects (we use exponential backoff).
-  maxBackoffTime: 2500
+  maxBackoffTime: 2500,
+  // Decide whether to reconnect after the *server* closed the connection. By default, close
+  // codes in the 4400-4499 range are permanent: the provider stops reconnecting and fires the
+  // `closed` event. See "Close codes & reconnecting" below.
+  // This is never called when you close the connection yourself (e.g. wsProvider.disconnect()).
+  shouldReconnect: (event, provider) => !(event.code >= 4400 && event.code < 4500)
 }
 ```
 
@@ -146,6 +151,13 @@ wsOpts = {
   <dd>Receive updates about the current connection status.</dd>
   <b><code>wsProvider.on('connection-close', function(WSClosedEvent))</code></b>
   <dd>Fires when the underlying websocket connection is closed. It forwards the websocket event to this event handler.</dd>
+  <b><code>wsProvider.on('closed', function({ code: number, reason: string }, provider))</code></b>
+  <dd>Fires when the server closed the connection and <code>shouldReconnect</code> returned false.
+    The provider stops reconnecting (<code>shouldConnect</code> becomes false) but is <em>not</em>
+    destroyed: cross-tab communication keeps running, and you may resume deliberately with
+    <code>wsProvider.connect()</code> or clean up with <code>wsProvider.destroy()</code>. Unlike
+    <code>connection-close</code>, which fires on every blip, this fires only when the server told
+    you to go away - and why.</dd>
   <b><code>wsProvider.on('connection-error', function(WSErrorEvent))</code></b>
   <dd>Fires when the underlying websocket connection closes with an error. It forwards the websocket event to this event handler.</dd>
   <b><code>wsProvider.on('sync-status', function(syncStatus: SyncStatus))</code></b>
@@ -170,6 +182,58 @@ wsOpts = {
     The current sync status can also be accessed directly via <code>wsProvider.syncStatus</code>.
   </dd>
 </dl>
+
+## Close Codes & Reconnecting
+
+The provider reconnects automatically after every disconnect, backing off exponentially up to
+`maxBackoffTime`. But some disconnects are not worth retrying: the permission to access the
+document was revoked, or the document doesn't exist anymore. A server signals this with the
+websocket **close code**.
+
+By convention the private-use range (`4000`-`4999`, reserved for applications by
+[RFC 6455](https://www.rfc-editor.org/rfc/rfc6455#section-7.4.2)) is split so that a client can
+classify a close code it has never seen before:
+
+| Close code | Meaning | Reconnect? |
+|---|---|---|
+| `4400`-`4499` | **permanent** - retrying returns the same result until the app acts | no |
+| `4500`-`4599` | **transient** - the matching "try again later" range | yes |
+| everything else | transient - `1006` abnormal closure, `1011` internal error, `1013` try again later, ... | yes |
+
+The band is normative; the trailing digits are only an HTTP mnemonic. A retryable rate-limit close
+is `45xx`, never `4429`.
+
+`shouldReconnect` implements exactly this rule by default. Override it to opt out entirely, or to
+classify codes your backend uses differently:
+
+```js
+const wsProvider = new WebsocketProvider('ws://localhost:1234', 'my-roomname', doc, {
+  // never give up
+  shouldReconnect: () => true
+})
+
+wsProvider.on('closed', ({ code, reason }) => {
+  console.log(`the server closed us for good: ${code} ${reason}`)
+  // the provider is idle, not destroyed - resume deliberately once the cause is fixed
+  // await refreshToken()
+  // wsProvider.connect()
+})
+```
+
+> **Breaking change:** previous versions reconnected after *every* close, regardless of the close
+> code. Pass `shouldReconnect: () => true` to restore that behavior.
+
+### Signalling a permanent error from the server
+
+Rejecting the HTTP upgrade (`401`, `403`, ...) does **not** work: browsers deliberately hide the
+upgrade status from the WebSocket API, so the client only sees an opaque `1006` with no code and no
+reason - and keeps retrying. To tell the client *why*, accept the upgrade and then close the socket:
+
+```js
+ws.close(4401, 'permission revoked')
+```
+
+[`@y/hub`](https://github.com/yjs/yhub) documents a worked example of this scheme.
 
 ## License
 
