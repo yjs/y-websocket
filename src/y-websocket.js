@@ -125,17 +125,45 @@ const readMessage = (provider, buf, emitSynced) => {
 }
 
 /**
+ * The default `shouldReconnect` implementation. Close codes 4000-4999 are reserved for private
+ * use (RFC 6455). By convention, the 4400-4499 sub-range mirrors the HTTP 4xx class: the server
+ * made a deliberate decision that reconnecting can't fix - e.g. the permission to access the
+ * document was revoked, or the document doesn't exist anymore. Every other close code is treated
+ * as transient, including 4500-4599, which is the matching "try again later" range.
+ *
+ * This is intentionally written as the negation of the positive range test. A WebSocket polyfill
+ * that doesn't report a close code must not be mistaken for a permanent error.
+ *
+ * @param {CloseEvent} event
+ * @return {boolean}
+ */
+const defaultShouldReconnect = (event) => !(event.code >= 4400 && event.code < 4500)
+
+/**
  * Outsource this function so that a new websocket connection is created immediately.
  * I suspect that the `ws.onclose` event is not always fired if there are network issues.
+ *
+ * `event` is `null` when we closed the connection ourselves - `provider.disconnect()`, or the
+ * "no message received" watchdog. We always reconnect in that case: a local close is not a
+ * signal from the server, and `provider.shouldConnect` already reflects the user's intention.
  *
  * @param {WebsocketProvider} provider
  * @param {WebSocket} ws
  * @param {CloseEvent | null} event
  */
 const closeWebsocketConnection = (provider, ws, event) => {
-  if (ws === provider.ws) {
+  if (ws !== null && ws === provider.ws) {
     provider.emit('connection-close', [event, provider])
     provider.ws = null
+    // detach the handlers so that a socket that is still flushing buffered frames (e.g. a Node
+    // `ws` socket in CLOSING state) cannot mutate the provider state anymore
+    ws.onmessage = null
+    ws.onopen = null
+    ws.onclose = null
+    // `onerror` is swallowed instead of detached: closing a socket that is still connecting is
+    // reported as an error event, and in nodejs an error event without a listener is rethrown as
+    // an uncaught exception
+    ws.onerror = () => {}
     ws.close()
     provider.wsconnecting = false
     if (provider.wsconnected) {
@@ -152,11 +180,23 @@ const closeWebsocketConnection = (provider, ws, event) => {
       provider.emit('status', [{
         status: 'disconnected'
       }])
-    } else {
-      provider.wsUnsuccessfulReconnects++
     }
-    // Start with no reconnect timeout and increase timeout by
-    // using exponential backoff starting with 100ms
+    // Every closed connection counts as an unsuccessful attempt. The counter is reset once a
+    // connection synced successfully (see the `synced` setter). Hence a server that accepts the
+    // connection and then closes it is backed off just like a server that refuses it.
+    provider.wsUnsuccessfulReconnects++
+    /**
+     * @type {{ code: number, reason: string } | null}
+     */
+    let terminalClose = null
+    if (event != null && !provider.shouldReconnect(event, provider)) {
+      // The server signaled that reconnecting is pointless. We go through the existing
+      // `shouldConnect` mechanism, so that the `setupWS` scheduled below turns into a no-op,
+      // while a deliberate `provider.connect()` can still resume the connection.
+      provider.shouldConnect = false
+      terminalClose = { code: event.code, reason: event.reason }
+    }
+    // Increase the timeout using exponential backoff, starting with 200ms
     setTimeout(
       setupWS,
       math.min(
@@ -165,6 +205,10 @@ const closeWebsocketConnection = (provider, ws, event) => {
       ),
       provider
     )
+    // emitted last, so that a `closed` handler may call `provider.connect()` synchronously
+    if (terminalClose !== null) {
+      provider.emit('closed', [terminalClose, provider])
+    }
   }
 }
 
@@ -181,6 +225,7 @@ const setupWS = (provider) => {
     provider.synced = false
 
     websocket.onmessage = (event) => {
+      if (provider.ws !== websocket) return
       provider.wsLastMessageReceived = time.getUnixTime()
       const encoder = readMessage(provider, new Uint8Array(event.data), true)
       if (encoding.length(encoder) > 1) {
@@ -188,16 +233,17 @@ const setupWS = (provider) => {
       }
     }
     websocket.onerror = (event) => {
+      if (provider.ws !== websocket) return
       provider.emit('connection-error', [event, provider])
     }
     websocket.onclose = (event) => {
       closeWebsocketConnection(provider, websocket, event)
     }
     websocket.onopen = () => {
+      if (provider.ws !== websocket) return
       provider.wsLastMessageReceived = time.getUnixTime()
       provider.wsconnecting = false
       provider.wsconnected = true
-      provider.wsUnsuccessfulReconnects = 0
       provider.emit('status', [{
         status: 'connected'
       }])
@@ -250,7 +296,7 @@ const broadcastMessage = (provider, buf) => {
  *   const doc = new Y.Doc()
  *   const provider = new WebsocketProvider('http://localhost:1234', 'my-document-name', doc)
  *
- * @extends {ObservableV2<{ 'connection-close': (event: CloseEvent | null,  provider: WebsocketProvider) => any, 'status': (event: { status: 'connected' | 'disconnected' | 'connecting' }) => any, 'connection-error': (event: Event, provider: WebsocketProvider) => any, 'sync': (state: boolean) => any }>}
+ * @extends {ObservableV2<{ 'connection-close': (event: CloseEvent | null,  provider: WebsocketProvider) => any, 'closed': (event: { code: number, reason: string }, provider: WebsocketProvider) => any, 'status': (event: { status: 'connected' | 'disconnected' | 'connecting' }) => any, 'connection-error': (event: Event, provider: WebsocketProvider) => any, 'sync': (state: boolean) => any }>}
  */
 export class WebsocketProvider extends ObservableV2 {
   /**
@@ -266,6 +312,7 @@ export class WebsocketProvider extends ObservableV2 {
    * @param {number} [opts.resyncInterval] Request server state every `resyncInterval` milliseconds
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
    * @param {boolean} [opts.disableBc] Disable cross-tab BroadcastChannel communication
+   * @param {(event: CloseEvent, provider: WebsocketProvider) => boolean} [opts.shouldReconnect] Decide whether to reconnect after the server closed the connection. By default, close codes in the 4400-4499 range are permanent - we stop reconnecting and emit a `closed` event. This is never called for connections that were closed locally (e.g. via `provider.disconnect()`).
    */
   constructor (serverUrl, roomname, doc, {
     connect = true,
@@ -275,7 +322,8 @@ export class WebsocketProvider extends ObservableV2 {
     WebSocketPolyfill = WebSocket,
     resyncInterval = -1,
     maxBackoffTime = 2500,
-    disableBc = false
+    disableBc = false,
+    shouldReconnect = defaultShouldReconnect
   } = {}) {
     super()
     // ensure that serverUrl does not end with /
@@ -285,6 +333,12 @@ export class WebsocketProvider extends ObservableV2 {
     this.serverUrl = serverUrl
     this.bcChannel = serverUrl + '/' + roomname
     this.maxBackoffTime = maxBackoffTime
+    /**
+     * Decides whether to reconnect after the server closed the connection. This can be safely
+     * updated. The new predicate is used for the next close event.
+     * @type {(event: CloseEvent, provider: WebsocketProvider) => boolean}
+     */
+    this.shouldReconnect = shouldReconnect
     /**
      * The specified url parameters. This can be safely updated. The changed parameters will be used
      * when a new connection is established.
@@ -416,6 +470,10 @@ export class WebsocketProvider extends ObservableV2 {
   set synced (state) {
     if (this._synced !== state) {
       this._synced = state
+      if (state) {
+        // a connection that synced did useful work - reset the reconnect backoff
+        this.wsUnsuccessfulReconnects = 0
+      }
       // @ts-ignore
       this.emit('synced', [state])
       this.emit('sync', [state])
