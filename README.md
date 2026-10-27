@@ -115,10 +115,11 @@ wsOpts = {
   // Specify the maximum amount to wait between reconnects (we use exponential backoff).
   maxBackoffTime: 2500,
   // Decide whether to reconnect after the *server* closed the connection. By default, close
-  // codes in the 4400-4499 range are permanent: the provider stops reconnecting and fires the
-  // `closed` event. See "Close codes & reconnecting" below.
+  // codes in the 4400-4499 range and the standard codes 1002, 1003, 1008 & 1009 are permanent:
+  // the provider stops reconnecting and fires the `closed` event. See "Close codes &
+  // reconnecting" below. `defaultShouldReconnect` is exported from 'y-websocket'.
   // This is never called when you close the connection yourself (e.g. wsProvider.disconnect()).
-  shouldReconnect: (event, provider) => !(event.code >= 4400 && event.code < 4500)
+  shouldReconnect: defaultShouldReconnect // (event, provider) => boolean
 }
 ```
 
@@ -198,18 +199,23 @@ classify a close code it has never seen before:
 |---|---|---|
 | `4400`-`4499` | **permanent** - retrying returns the same result until the app acts | no |
 | `4500`-`4599` | **transient** - the matching "try again later" range | yes |
+| `1002` `1003` `1008` `1009` | **permanent** - standard codes: protocol error, unsupported data, policy violation, message too big | no |
 | everything else | transient - `1006` abnormal closure, `1011` internal error, `1013` try again later, ... | yes |
 
 The band is normative; the trailing digits are only an HTTP mnemonic. A retryable rate-limit close
 is `45xx`, never `4429`.
 
-`shouldReconnect` implements exactly this rule by default. Override it to opt out entirely, or to
-classify codes your backend uses differently:
+`shouldReconnect` implements exactly this rule by default (`defaultShouldReconnect`). Override it
+to opt out entirely, or to classify codes your backend uses differently:
 
 ```js
+import { WebsocketProvider, defaultShouldReconnect } from 'y-websocket'
+
 const wsProvider = new WebsocketProvider('ws://localhost:1234', 'my-roomname', doc, {
   // never give up
   shouldReconnect: () => true
+  // ... or treat an additional code as permanent and keep the default rule for everything else
+  // shouldReconnect: (event, provider) => event.code !== 4000 && defaultShouldReconnect(event)
 })
 
 wsProvider.on('closed', ({ code, reason }) => {

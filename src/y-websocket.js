@@ -138,19 +138,29 @@ const readMessage = (provider, buf, emitSynced) => {
 }
 
 /**
+ * Standard close codes that signal a permanent error - see `defaultShouldReconnect`.
+ */
+const permanentStandardCloseCodes = new Set([1002, 1003, 1008, 1009])
+
+/**
  * The default `shouldReconnect` implementation. Close codes 4000-4999 are reserved for private
  * use (RFC 6455). By convention, the 4400-4499 sub-range mirrors the HTTP 4xx class: the server
  * made a deliberate decision that reconnecting can't fix - e.g. the permission to access the
  * document was revoked, or the document doesn't exist anymore. Every other close code is treated
  * as transient, including 4500-4599, which is the matching "try again later" range.
  *
- * This is intentionally written as the negation of the positive range test. A WebSocket polyfill
- * that doesn't report a close code must not be mistaken for a permanent error.
+ * The standard (RFC 6455) close codes 1002 protocol error, 1003 unsupported data, 1008 policy
+ * violation, and 1009 message too big are permanent as well: a new connection would send the same
+ * frames, or violate the same policy, again. This matches the classification of yhub.
+ *
+ * This is intentionally written as the negation of the positive tests. A WebSocket polyfill that
+ * doesn't report a close code must not be mistaken for a permanent error.
  *
  * @param {CloseEvent} event
  * @return {boolean}
  */
-const defaultShouldReconnect = (event) => !(event.code >= 4400 && event.code < 4500)
+export const defaultShouldReconnect = (event) =>
+  !(event.code >= 4400 && event.code < 4500) && !permanentStandardCloseCodes.has(event.code)
 
 /**
  * Outsource this function so that a new websocket connection is created immediately.
@@ -361,7 +371,7 @@ export class WebsocketProvider extends ObservableV2 {
    * @param {number} [opts.maxBackoffTime] Maximum amount of time to wait before trying to reconnect (we try to reconnect using exponential backoff)
    * @param {boolean} [opts.disableBc] Disable cross-tab BroadcastChannel communication
    * @param {number} [opts.socketTimeout] If no message is received for this amount of time, client will close the socket and reconnect
-   * @param {(event: CloseEvent, provider: WebsocketProvider) => boolean} [opts.shouldReconnect] Decide whether to reconnect after the server closed the connection. By default, close codes in the 4400-4499 range are permanent - we stop reconnecting and emit a `closed` event. This is never called for connections that were closed locally (e.g. via `provider.disconnect()`).
+   * @param {(event: CloseEvent, provider: WebsocketProvider) => boolean} [opts.shouldReconnect] Decide whether to reconnect after the server closed the connection. By default (see `defaultShouldReconnect`), close codes in the 4400-4499 range and the standard codes 1002, 1003, 1008, and 1009 are permanent - we stop reconnecting and emit a `closed` event. This is never called for connections that were closed locally (e.g. via `provider.disconnect()`).
    */
   constructor (serverUrl, roomname, doc, {
     connect = true,

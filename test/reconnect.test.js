@@ -314,7 +314,8 @@ export const testOrdinaryClosesStillReconnect = async (_tc) => {
 
 /**
  * The band rule at its boundaries: 4400-4499 is permanent, everything around it - including the
- * 4500-4599 range that servers reserve for transient application errors - is not.
+ * 4500-4599 range that servers reserve for transient application errors - is not. The standard
+ * codes 1002, 1003, 1008, and 1009 are permanent too, but their neighbors are not.
  *
  * @param {t.TestCase} _tc
  */
@@ -350,6 +351,12 @@ export const testCloseCodeBandBoundaries = async (_tc) => {
   await t.groupAsync('4400 - first permanent code', () => checkBand(4400, true))
   await t.groupAsync('4499 - last permanent code', () => checkBand(4499, true))
   await t.groupAsync('4500 - reserved for transient errors', () => checkBand(4500, false))
+  await t.groupAsync('1002 - protocol error', () => checkBand(1002, true))
+  await t.groupAsync('1003 - unsupported data', () => checkBand(1003, true))
+  await t.groupAsync('1007 - next to the standard permanent codes', () => checkBand(1007, false))
+  await t.groupAsync('1008 - policy violation', () => checkBand(1008, true))
+  await t.groupAsync('1009 - message too big', () => checkBand(1009, true))
+  await t.groupAsync('1010 - next to the standard permanent codes', () => checkBand(1010, false))
 }
 
 /**
