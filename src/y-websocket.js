@@ -552,7 +552,7 @@ export class WebsocketProvider extends ObservableV2 {
     const now = time.getUnixTime()
     const localUpdatesSynced = unconfirmedUpdates.length === 0
     const localUpdatesAge = localUpdatesSynced ? 0 : now - unconfirmedUpdates[0].created
-    const status = (connected && receivedInitialSync && localUpdatesAge === 0) ? 'green' : (connected && localUpdatesAge < acceptableConnectionDelay ? 'yellow' : 'red')
+    const status = (connected && receivedInitialSync && localUpdatesSynced) ? 'green' : (connected && localUpdatesAge < acceptableConnectionDelay ? 'yellow' : 'red')
     return {
       connected,
       receivedInitialSync,
