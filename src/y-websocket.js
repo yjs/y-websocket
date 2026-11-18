@@ -497,10 +497,18 @@ export class WebsocketProvider extends ObservableV2 {
     }
     this.doc.on('update', this._updateHandler)
     /**
+     * Listens to awareness updates and sends them to remote peers (ws and broadcastchannel).
+     *
+     * Updates that we received from a remote peer (the server or another tab) are applied with
+     * `origin === this`. We must not echo them back - every peer receives them from the source.
+     * This also covers the removal of remote states when the websocket connection is closed, which
+     * must not be propagated to tabs that are still connected.
+     *
      * @param {any} changed
-     * @param {any} _origin
+     * @param {any} origin
      */
-    this._awarenessUpdateHandler = ({ added, updated, removed }, _origin) => {
+    this._awarenessUpdateHandler = ({ added, updated, removed }, origin) => {
+      if (origin === this) return
       const changedClients = added.concat(updated).concat(removed)
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageAwareness)
